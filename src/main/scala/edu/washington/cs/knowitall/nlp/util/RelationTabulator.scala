@@ -13,19 +13,22 @@ import net.sf.extjwnl.data.IndexWord
 import edu.mit.jwi.item.IndexWordID
 import net.sf.extjwnl.data.Word
 import net.sf.extjwnl.data.Synset
+import net.sf.extjwnl.data.PointerType
+import net.sf.extjwnl.data.Pointer
 import java.io.FileNotFoundException
 import java.net.URL
 import edu.mit.jwi.item.Pointer
 
 case class CountedRelation(val rel: String, val postags: String, val freq: Int, val arg1s: Seq[String], val arg2s: Seq[String]) {
-  lazy val tokens: Seq[PostaggedToken] = rel.split(" ").zip(postags.split(" ")).map { case (string, postag) => new PostaggedToken(postag, string, 0) }
+  val tokens: Seq[PostaggedToken] = rel.split(" ").zip(postags.split(" ")).map { case (string, postag) => new PostaggedToken(postag, string, 0) }
 }
+
 object CountedRelation {
   def fromString(string: String): Option[CountedRelation] = {
     val split = string.split("\t")
     def commaSplit(str: String) = str.split(",") map { _.trim }
     if (split.length != 5) { System.err.println("Error parsing %s".format(string)); None }
-    else Some(CountedRelation(
+    else Some(CountedRelation( 
         rel=split(1), 
         postags=split(2), 
         freq=split(0).toInt, 
@@ -62,15 +65,21 @@ class RelationTabulator(
   }
   
   def outputRows(rel: CountedRelation): Seq[String] = {
+    
     val verbIndex = rel.tokens.lastIndexWhere(_.isVerb)
     val adjIdxs = adjIndexes(rel.tokens)
-    val tokenLists = rel.tokens.zipWithIndex.toList.map { case (token, index) =>
-      val words = wnWords(token)
-      if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) words.map(word => WordnetToken(token, Some(word)))
-      else List(WordnetToken(token, None))
+    val tokenLists = rel.tokens.zipWithIndex.map { case (token, index) =>      
+      val words = wnWords(token).take(maxSensesPerWord).toList
+      if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) { words.map(word => WordnetToken(token, Some(word))) }
+      else { List(WordnetToken(token, None)) }
     }
-    val wordnetRelations = cartesianProduct(tokenLists) map WordnetRelation.apply
-    wordnetRelations map outputRow(rel) take(maxSenseCombos)
+    
+    val wordnetRelations = cartesianProduct(tokenLists.toList).map(WordnetRelation.apply _)
+    
+    val result = wordnetRelations.map(outputRow(rel)  _).take(maxSenseCombos)
+    
+    
+    result
   }
   
   def outputRow(rel: CountedRelation)(wnRel: WordnetRelation): String = {
@@ -91,7 +100,11 @@ class RelationTabulator(
     ).mkString("\t")
   }
   
-  case class WordnetToken(val token: PostaggedToken, val word: Option[Word]) 
+  case class WordnetToken(val token: PostaggedToken, val wordOpt: Option[Word]) {
+    def word = wordOpt.get
+    def synset = word.getSynset()
+    def synOpt = wordOpt.map(_.getSynset)
+  }
 
   case class WordnetRelation(val tokens: Seq[WordnetToken]) {
     
@@ -101,86 +114,90 @@ class RelationTabulator(
     
     val adjIdxs = adjIndexes(tokens map { _.token })
     
-    def isContentWord(token: WordnetToken, index: Int) = (token.token.isNoun || index == verbIndex || adjIdxs.contains(index)) && token.word.isDefined
+    def isContentWord(token: WordnetToken, index: Int) = (token.token.isNoun || index == verbIndex || adjIdxs.contains(index)) && token.synOpt.isDefined
     def contentWords = tokens.zipWithIndex.filter { case (token, index) => isContentWord(token, index) }
     
-    override val toString: String = tokens(verbIndex).word match {
+    override val toString: String = tokens(verbIndex).wordOpt match {
       case Some(word) => toStringWithReplacement(verbIndex, word)
       case None => toStringWithReplacement(-1, null)
     }
     
-    def toStringWithReplacement(replIndex: Int, word: IWord): String = tokens.zipWithIndex.map { case (token, index) =>
+    def toStringWithReplacement(replIndex: Int, word: Word): String = tokens.zipWithIndex.map { case (token, index) =>
       if (index == replIndex) wordBracketString(word)
-      else if (isContentWord(token, index)) wordBracketString(token.word.get)
+      else if (isContentWord(token, index)) wordBracketString(token.word)
       else token.token.string
     }.mkString(" ")
     
     def senseChainString(chainIndex: Int)(senseChain: Seq[SynsetWrapper]): String = {
-      var stopIndex = senseChain.indexWhere(sense => chainWordStopList.contains(wordBracketString(sense.synset.getWord(1))))
+      var stopIndex = senseChain.indexWhere { sense =>
+        chainWordStopList.contains(wordBracketString(sense.synset.getWords.head))
+      }
       if (stopIndex < 0) stopIndex = 100 // a chain should never be this long.. (hack)
       val limitedChain = senseChain.take(stopIndex + 1).take(maxChainLength) // really just need something like "takeWhileInclusive"
-      val chainParts = limitedChain.map { sense => sense.cursor + toStringWithReplacement(chainIndex, sense.synset.getWord(1)) }
+      val chainParts = limitedChain.map { sense => 
+        sense.cursor + toStringWithReplacement(chainIndex, sense.synset.getWords.head) 
+      }
       if (!chainParts.isEmpty) (Seq(toString) ++ chainParts).mkString(" ") else ""
     }
 
     def troponymChainStrings: Seq[String] = {
-      val tropoSynsets = contentWords.map { case (token, tokIndex) => (token, tokIndex, troponyms(token.word.get.getSynset)) }
+      val tropoSynsets = contentWords.map { case (token, tokIndex) => (token, tokIndex, troponyms(token.synOpt.get)) }
       val candidates = tropoSynsets.flatMap { case (token, tokIndex, troponyms) => 
         troponyms.zipWithIndex.flatMap { case (trop, tropIndex) =>
           trop.getWords.map { word =>
             // penalize high sense numbers as well as high troponym index:
-            (toStringWithReplacement(tokIndex, word), getSenseNum(word) * tropIndex+1)  
+            (toStringWithReplacement(tokIndex, word), word.getUseCount())  
           }
         }
       }
-      candidates.sortBy(_._2).map(_._1).take(6).map(str => "%s >h: %s".format(str, toString))
+      candidates.sortBy(-_._2).map(_._1).take(6).map(str => "%s >h: %s".format(str, toString))
     }
     
     def senseChainStrings: Seq[String] = {
 
       val strings = troponymChainStrings ++ contentWords.flatMap { case (token, index) => 
-        val hypChain = hypernymChain(token.word.get.getSynset())
-        val entChain = entailmentChain(token.word.get.getSynset())
+        val hypChain = hypernymChain(token.word.getSynset())
+        val entChain = entailmentChain(token.synset)
         Seq(hypChain, entChain) map senseChainString(index)
       }.filter(!_.isEmpty()).distinct
       if (strings.isEmpty) Seq("none") else strings
     }
     
     def glossStrings: Seq[String] = {
-      val glossWords = contentWords.flatMap { case (token, index) => token.word }
-      glossWords.map { word => glossString(word.getSynset) }
+      val glossWords = contentWords.flatMap { case (token, index) => token.wordOpt }
+      glossWords.map { word => glossString(word) }
     }
     
-    def synStrings = contentWords.flatMap { case (token, index) => token.word }.map(word=>synString(word.getSynset)).mkString(" | ")
+    def synStrings = contentWords.flatMap { case (token, index) => token.wordOpt }.map(word=>synString(word.getSynset)).mkString(" | ")
   }
   
-  def glossString(synset: ISynset): String = synset.getGloss()
+  def glossString(word: Word): String = "(%d) %s".format(word.getUseCount, word.getSynset.getGloss)
   
-  def synString(synset: ISynset): String = synset.getWords().map(wordBracketString _).mkString(",")
-    
-  def wordBracketString(word: IWord): String = {
-    val posChar = word.getPOS().toString().charAt(0).toString
-    "%s[%s%d]".format(word.getLemma, posChar, getSenseNum(word))
+  def synString(synset: Synset): String = synset.getWords().map(wordBracketString _).mkString(",")
+  
+  def wordBracketString(word: Word): String = {
+    val posChar = word.getPOS().getLabel().charAt(0).toString
+    "%s[%s%s]".format(word.getLemma, posChar, getSenseNum(word))
   }
   
-  def getSenseNum(word: IWord): Int = {
-    val lemma = word.getLemma
-    val senses = wnDict.getIndexWord(word.getPOS, lemma).getWordIDs().map(_.getSynsetID())
-    senses.indexWhere(_.equals(word.getSynset().getID())) + 1
+  def getSenseNum(word: Word): Int = {
+    val synset = word.getSynset
+    val senses = wnDict.getIndexWord(word.getPOS, word.getLemma).getSenses.toSeq
+    senses.indexWhere(sense => sense.getWords.toSet.contains(word)) + 1
   }
   
-  def troponyms(synset: ISynset): Iterable[ISynset] = {
-    val trops = synset.getRelatedSynsets(Pointer.HYPONYM).toSeq
-    trops map wnDict.getSynset toIterable
+  def troponyms(synset: Synset): Iterable[Synset] = {
+    val trops = synset.getPointers().filter(_.getType().equals(PointerType.HYPONYM)).map(_.getTargetSynset())
+    trops
   }
   
-  def entailments(synset: ISynset): Iterable[EntSynset] = {
-    val ents = synset.getRelatedSynsets(Pointer.ENTAILMENT).toSeq
-    ents map wnDict.getSynset map EntSynset.apply toIterable;
+  def entailments(synset: Synset): Iterable[EntSynset] = {
+    val ents = synset.getPointers().filter(_.getType().equals(PointerType.ENTAILMENT)).map(_.getTargetSynset())
+    ents map EntSynset.apply
   }
   
-  def entailmentChain(synset: ISynset): Seq[SynsetWrapper] = entailmentChain(0)(synset)
-  def entailmentChain(depth: Int)(synset: ISynset): Seq[SynsetWrapper] = {
+  def entailmentChain(synset: Synset): Seq[SynsetWrapper] = entailmentChain(0)(synset)
+  def entailmentChain(depth: Int)(synset: Synset): Seq[SynsetWrapper] = {
     if (depth > 10) return Seq.empty
     val hypEnts: Iterable[SynsetWrapper] = (entailments(synset) ++ hypernyms(synset))
     hypEnts.headOption match {
@@ -189,8 +206,8 @@ class RelationTabulator(
     } 
   }
   
-  def hypernymChain(synset: ISynset): Seq[SynsetWrapper] = hypernymChain(0)(synset)
-  def hypernymChain(depth: Int)(synset: ISynset): Seq[SynsetWrapper] = {
+  def hypernymChain(synset: Synset): Seq[SynsetWrapper] = hypernymChain(0)(synset)
+  def hypernymChain(depth: Int)(synset: Synset): Seq[SynsetWrapper] = {
     if (depth > 10) return Seq.empty
     val hypEnts: Iterable[SynsetWrapper] = (hypernyms(synset) ++ entailments(synset))
     hypEnts.headOption match {
@@ -200,17 +217,26 @@ class RelationTabulator(
   }
   
   def hypernyms(synset: Synset): Iterable[HypSynset] = {
-    val hyps = synset.getRelatedSynsets(Pointer.HYPERNYM).toSeq
-    hyps map wnDict.getSynset map HypSynset.apply
-  }
-  
-  def wnSynsets(token: PostaggedToken): List[Synset] = wnLemma(token) match {
-    case Some(idxWord) => idxWord.getSenses().toList.take(maxSensesPerWord)
-    case None => List.empty
+    val hyps = synset.getPointers().filter(_.getType().equals(PointerType.HYPERNYM)).map(_.getTargetSynset())
+    hyps map HypSynset.apply
   }
 
-  def wnLemma(token: PostaggedToken): Option[IndexWord] = wnPOS(token) map { pos =>
-    wnDict.lookupIndexWord(pos, token.string)
+  def wnWords(token: PostaggedToken): Seq[Word] = {
+    val idxWordOpt = wnLemma(token) 
+    idxWordOpt match {
+      case Some(idxWord) => {
+        val synsets = idxWord.getSenses()
+        synsets.flatMap { sense => sense.getWords.find(_.getLemma().toLowerCase.equals(idxWord.getLemma().toLowerCase)) }
+      }
+      case None => {
+        Seq.empty
+      }
+    }
+  }
+
+  def wnLemma(token: PostaggedToken): Option[IndexWord] = wnPOS(token) flatMap { pos =>
+    val indexWord = wnDict.lookupIndexWord(pos, token.string)
+    Option(indexWord)
   }
   
   def wnPOS(token: PostaggedToken): Option[POS] = {
@@ -236,10 +262,7 @@ object RelationTabulator {
   
   def fetchDictionary(wnHome: String): Dictionary = {
 
-    val path = wnHome + "/dict"
-    val url = new URL("file", null, path)
-
-    val dict = Dictionary.getDatabaseBackedInstance(url.toString)
+    val dict = Dictionary.getInstance(new java.io.FileInputStream(wnHome))
     return dict;
   }
   
@@ -253,11 +276,11 @@ object RelationTabulator {
 //    
 //    if (!parser.parse(args)) return
     
-    val wnHome = "D:/scratch/WordNet-3.0"
+    val wnHome = "/scratch/WordNet-3.0/file_properties.xml"
     
     val inst = getInstance(wnHome)
       
-    val rels = Source.fromFile("D:/scratch/ollie-relations-sorted.txt").getLines.take(200).flatMap(CountedRelation.fromString _).toSeq
+    val rels = Source.fromFile("/scratch/ollie-relations-sorted.txt").getLines.take(5000).flatMap(CountedRelation.fromString _).toSeq
     
     //val rels = Seq("251821\tbe part of\tVBZ NN PP").flatMap(CountedRelation.fromString _).toSeq
     
@@ -280,17 +303,19 @@ object RelationTabulator {
     
     println(columnHeaders.mkString("\t"))
     
-    rels.filter(doHaveRelationFilter _).flatMap { rel => 
-      try { inst.outputRows(rel) } catch { case e: Exception => Seq.empty }
-    }.zipWithIndex foreach { case (string, index) =>
+    val filtered = rels.filter(doHaveRelationFilter _)
+    val outputRows = filtered.flatMap { rel => 
+      try { 
+        inst.outputRows(rel)
+      } catch { case e: Exception => { e.printStackTrace; Seq.empty } }
+    }
+    outputRows.zipWithIndex foreach { case (string, index) =>
       println("%s\t%s".format(index, string))
     }
     
-//    val idxwordid = new IndexWordID("have", POS.VERB)
-//    val idxword = inst.wnDict.getIndexWord(idxwordid)
-//    val words = idxword.getWordIDs map inst.wnDict.getWord
-//    val synsets = words.map { _.getSynset }
-//    synsets map inst.troponyms foreach println
+//    val idxword = inst.wnDict.lookupIndexWord(POS.NOUN, "president")
+//    val senses = idxword.getSenses()
+//    println("IndexWord: %s\nSenses:%s".format(idxword, senses.map(s => inst.synString(s)).mkString("\n")))
   }
 
   def cartesianProduct[T](xss: List[List[T]]): List[List[T]] = xss match {

@@ -25,13 +25,24 @@
       <id>knowitall-snapshot</id>
       <url>http://knowitall.cs.washington.edu/maven2-snapshot</url>
     </repository>
-    <!--<repository>
-      <id>typesafe</id>
-      <name>Typesafe Repository</name>
-      <url>http://repo.typesafe.com/typesafe/releases/</url>
-    </repository>-->
   </repositories>
-  <dependencies>
+    <dependencies>
+      <dependency>
+      <groupId>net.sf.extjwnl</groupId>
+      <artifactId>extjwnl</artifactId>
+      <version>1.6.3</version>
+    </dependency>
+    <dependency>
+	<groupId>com.googlecode.concurrentlinkedhashmap</groupId>
+	<artifactId>concurrentlinkedhashmap-lru</artifactId>
+	<version>1.2</version>
+</dependency>
+            <dependency>
+	<groupId>net.sf.extjwnl</groupId>
+	<artifactId>extjwnl-utilities</artifactId>
+	<version>1.6.3</version>
+</dependency>
+            
     <dependency>
       <groupId>edu.mit</groupId>
       <artifactId>jwi</artifactId>
