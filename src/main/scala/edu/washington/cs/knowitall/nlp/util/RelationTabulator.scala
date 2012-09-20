@@ -255,6 +255,10 @@ class RelationTabulator(
  */
 object RelationTabulator {
 
+  val wnHome = "/WordNet-3.0/file_properties.xml"
+  
+  def getInstance: RelationTabulator = getInstance(wnHome)
+  
   def getInstance(wnHome: String): RelationTabulator = {
     val dict = fetchDictionary(wnHome)
     new RelationTabulator(dict)
@@ -262,7 +266,7 @@ object RelationTabulator {
   
   def fetchDictionary(wnHome: String): Dictionary = {
 
-    val dict = Dictionary.getInstance(new java.io.FileInputStream(wnHome))
+    val dict = Dictionary.getInstance(this.getClass.getResource(wnHome).openStream())
     return dict;
   }
   
@@ -276,9 +280,7 @@ object RelationTabulator {
 //    
 //    if (!parser.parse(args)) return
     
-    val wnHome = "/scratch/WordNet-3.0/file_properties.xml"
-    
-    val inst = getInstance(wnHome)
+    val inst = getInstance
       
     val rels = Source.fromFile("/scratch/ollie-relations-sorted.txt").getLines.take(5000).flatMap(CountedRelation.fromString _).toSeq
     
