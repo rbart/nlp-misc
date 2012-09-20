@@ -51,7 +51,7 @@ object RelTupleTabulator extends ScoobiApp {
     
     def toArgString(tokens: Seq[PostaggedToken]) = tokens.map(_.string).mkString(" ")
     
-    relContexts.iterator.foreach { context =>
+    relContexts.iterator.take(1000000).foreach { context =>
       val typePair = toTypePair(context)
       pairCounts.getOrElseUpdate(typePair, MutInt.zero).inc
       val argCount = argCounts.getOrElseUpdate(typePair, {
