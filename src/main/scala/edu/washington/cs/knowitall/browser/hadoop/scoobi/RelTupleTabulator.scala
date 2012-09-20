@@ -30,13 +30,36 @@ object RelTupleTabulator extends ScoobiApp {
     // need a toString
     override def toString = {
       Seq(
-        freq,
+        freq.toString,
         rel,
         arg1Type,
         arg2Type,
-        arg1s.mkString(" | "),
-        arg2s.mkString(" | ")
+        arg1s.map({ case (arg, freq) => "%s(%d)".format(arg, freq) }).mkString(" | "),
+        arg2s.map({ case (arg, freq) => "%s(%d)".format(arg, freq) }).mkString(" | ")
       ).mkString("\t")
+    }
+  }
+  
+  object TypeContext {
+    
+    private def parseArgFreq(string: String): (String, Int) = {
+      val breakIndex = string.dropRight(1).lastIndexWhere(_ == '(')
+      val arg = string.take(breakIndex - 1)
+      val freq = string.drop(breakIndex).toInt
+      (arg, freq)
+    }
+    
+    def fromString(string: String): Option[TypeContext] = string.split("\t") match {
+      case Array(freq, rel, arg1Type, arg2Type, arg1Strings, arg2Strings, _*) => {
+        try {
+          val arg1s = arg1Strings.split(" | ").map(parseArgFreq _)
+          val arg2s = arg2Strings.split(" | ").map(parseArgFreq _)
+          Some(TypeContext(arg1Type, rel, arg2Type, freq.toInt, arg1s, arg2s))
+        } catch {
+          case e => { e.printStackTrace(); None }
+        }
+      }
+      case _ => { System.err.println("TypeContext couldn't parse: %s".format(string)); None }
     }
   }
   
@@ -64,10 +87,10 @@ object RelTupleTabulator extends ScoobiApp {
     // now, for each typed pair, we need to construct a TypeContext based on the data in the mutable maps.
     // here is a helper method to extract the top args from an arg count map:
     def topArgs(countMap: mutable.Map[String, MutInt]): Seq[(String, Int)] = {
-      countMap.iterator.map({ case (arg, count) => (arg, count.count.toInt) }).filter(_._2 > 1).toSeq.sortBy(-_._2)
+      countMap.iterator.map({ case (arg, count) => (arg, count.count.toInt) }).toSeq.sortBy(-_._2)
     }
     
-    pairCounts.iterator.filter(_._2.count > 1).map({ case ((arg1Type, arg2Type), freq) => 
+    pairCounts.iterator.map({ case ((arg1Type, arg2Type), freq) => 
       val (arg1Counts, arg2Counts) = argCounts(arg1Type, arg2Type) 
       val (topArg1s, topArg2s) = (topArgs(arg1Counts), topArgs(arg2Counts))
       TypeContext(arg1Type, rel, arg2Type, freq.count.toInt, topArg1s.take(6), topArg2s.take(6))
@@ -109,10 +132,10 @@ object RelTupleTabulator extends ScoobiApp {
     // take rel, Iterable[ArgContext] and traverse the iterable to find most common (arg1Type, arg2Type) pairs,
     // as well as the most common arg1/arg2 strings for each (arg1Type, arg2Type) pair.
     val typeContexts = grouped.flatMap { case (rel, contexts) =>
-      buildTypeContext(rel, contexts flatMap ArgContext.fromString).take(15)
+      buildTypeContext(rel, contexts.flatMap(ArgContext.fromString _)).take(5000).toSeq.sortBy(-_.freq).map(_.toString)
     }
     
-    persist(toTextFile(typeContexts.map(_.toString), outputPath + "/"))
+    persist(toTextFile(typeContexts, outputPath + "/"))
   }
   
   def stemToken(token: PostaggedToken): PostaggedToken = {
