@@ -98,18 +98,18 @@ object RelTupleTabulator extends ScoobiApp {
     
     val grouped = tuples.groupByKey
     
-    val freqFilteredRels = grouped.flatMap { case (rel, argContexts) =>
-      val size = argContexts.size
-      if (size >= minFrequency && size <= maxFrequency) Some((rel, "")) else None
-    }
+//    val freqFilteredRels = grouped.flatMap { case (rel, argContexts) =>
+//      val size = argContexts.size
+//      if (size >= minFrequency && size <= maxFrequency) Some((rel, "")) else None
+//    }
     
-    val filteredRelContexts = freqFilteredRels.join(grouped)
+    //val filteredRelContexts = freqFilteredRels.join(grouped)
     
     
     // take rel, Iterable[ArgContext] and traverse the iterable to find most common (arg1Type, arg2Type) pairs,
     // as well as the most common arg1/arg2 strings for each (arg1Type, arg2Type) pair.
-    val typeContexts = filteredRelContexts.flatMap { case (rel, (empties, contexts)) =>
-      buildTypeContext(rel, contexts flatMap ArgContext.fromString)
+    val typeContexts = grouped.flatMap { case (rel, contexts) =>
+      buildTypeContext(rel, contexts flatMap ArgContext.fromString).take(15)
     }
     
     persist(toTextFile(typeContexts.map(_.toString), outputPath + "/"))
