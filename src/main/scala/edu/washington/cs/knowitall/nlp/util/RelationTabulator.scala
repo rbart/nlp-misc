@@ -19,25 +19,26 @@ import java.io.FileNotFoundException
 import java.net.URL
 import edu.mit.jwi.item.Pointer
 
-import scala.collection.mutable
+import java.util.LinkedList
 
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.TypeContext
+import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
 
-case class CountedRelation(val rel: String, val postags: String, val freq: Int, val arg1s: Seq[String], val arg2s: Seq[String]) {
-  val tokens: Seq[PostaggedToken] = rel.split(" ").zip(postags.split(" ")).map { case (string, postag) => new PostaggedToken(postag, string, 0) }
+case class FreqRelTypeContext(val freq: Int, val rel: Seq[PostaggedToken], val typeContext: TypeContext) {
+  override def toString = {
+    val relPostags = rel.map(_.postag).mkString(" ")
+    Seq(freq, relPostags, typeContext.toString).mkString("\t")
+  }
 }
 
-object CountedRelation {
-  def fromString(string: String): Option[CountedRelation] = {
+object FreqRelTypeContext {
+  def fromString(string: String): Option[FreqRelTypeContext] = {
+    def fail = { System.err.println("FreqRelTypeContext couldn't parse: %s".format(string)); None }
     val split = string.split("\t")
-    def commaSplit(str: String) = str.split(",") map { _.trim }
-    if (split.length != 5) { System.err.println("Error parsing %s".format(string)); None }
-    else Some(CountedRelation( 
-        rel=split(1), 
-        postags=split(2), 
-        freq=split(0).toInt, 
-        arg1s=commaSplit(split(3)), 
-        arg2s=commaSplit(split(4))))
+    if (split.length <= 4) return fail
+    val typeContext = TypeContext.fromString(split.drop(2).mkString("\t")).getOrElse(return fail)
+    val relTokens = joinTokensAndPostags(typeContext.rel, split(1))
+    Some(FreqRelTypeContext(split(0).toInt, relTokens, typeContext))
   }
 }
 
@@ -68,19 +69,28 @@ class RelationTabulator(
     } toSet
   }
   
-  def outputRows(relFreq: Int, context: TypeContext): Seq[String] = {
+  def outputAllRows(contexts: Seq[FreqRelTypeContext]): Seq[String] = {
+    outputSenseRows(contexts.head)
+  }
+  
+  def outputSenseRows(context: FreqRelTypeContext): Seq[String] = {
     
-    val verbIndex = context.relTokens.lastIndexWhere(_.isVerb)
-    val adjIdxs = adjIndexes(context.relTokens)
+    System.err.println("context: %s".format(context))
+    System.err.println("contextRelTokens: %s".format(context.rel))
+    
+    val verbIndex = context.rel.lastIndexWhere(_.isVerb)
+    val adjIdxs = adjIndexes(context.rel)
     
     // this contains the various wordnet word senses for each content word in the relation.
     // It is a list of lists, where the elements are wrappers for an optional wordnet word.
     // in the case that the token is not a content word, the wrapper contains an empty word field.
-    val tokenLists = context.relTokens.zipWithIndex.map { case (token, index) =>      
+    val tokenLists = context.rel.zipWithIndex.map { case (token, index) =>      
       val words = wnWords(token).take(maxSensesPerWord).toList
       if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) { words.map(word => WordnetToken(token, Some(word))) }
       else { List(WordnetToken(token, None)) }
     }
+    
+    System.err.println("TokenLists: %s".format(tokenLists))
     
     // we need to construct WordnetRelations that cover all senses of the content words, while containing only
     // a single content word at a time. e.g. for relation "a b c" where a,b,c are content words with senses a0, a1, etc,
@@ -100,10 +110,12 @@ class RelationTabulator(
       combos map WordnetRelation.apply
     }).flatten
     
-    val outputLines = new mutable.LinkedList[String]
+    System.err.println("RelationCombos: %s".format(relationCombos))
+    
+    val outputLines = new LinkedList[String]()
     outputLines.add(Seq("Senses", "term", "gloss", "synset", "h/e chains").mkString("\t"))
     
-    relationCombos.foreach { rel =>
+    relationCombos.foreach { rel =>	
       val wnTokenOpt = rel.tokens.find(_.wordOpt.isDefined)
       wnTokenOpt.foreach { wnToken => outputLines.add(senseRow(wnToken.word, rel)) }
     }
@@ -294,25 +306,27 @@ object RelationTabulator {
     val dict = Dictionary.getInstance(new java.io.FileInputStream(wnHome))
     return dict;
   }
+
+  def loadFreqAndContext(string: String): Option[(Int, TypeContext)] = {
+    val split = string.split("\t")
+    TypeContext.fromString(split.drop(1).mkString("\t")).map { context => (split(0).toInt, context) }
+  }
   
   def main(args: Array[String]): Unit = {
     
-//    var inputFile: String = ""
-//    
-//    val parser = new OptionParser("Relation Tabulator") {
-//      arg("inputFile", "file with freq, relation string separated by tabs", { str => inputFile = str })
-//    }
-//    
-//    if (!parser.parse(args)) return
+    var input: Source = Source.stdin
+    
+    val parser = new OptionParser("Relation Tabulator") {
+      opt("inputFile", "TypeContexts, tab serialized (read from stdin by default", { str => input = Source.fromFile(str) })
+    }
+    
+    if (!parser.parse(args)) return
     
     val inst = getInstance
       
-    def loadFreqAndContext(string: String): Option[(Int, TypeContext)] = {
-      val split = string.split("\t")
-      TypeContext.fromString(split.drop(1).mkString("\t")).map { context => (split(0).toInt, context) }
-    }
+
     
-    val rels = Source.fromFile("/scratch/relations-tabulated.txt").getLines.take(5000).flatMap(loadFreqAndContext _).toSeq
+    val rels = input.getLines.take(5000).flatMap(FreqRelTypeContext.fromString _).toSeq
     
     //val rels = Seq("251821\tbe part of\tVBZ NN PP").flatMap(CountedRelation.fromString _).toSeq
     
@@ -335,10 +349,10 @@ object RelationTabulator {
     
     println(columnHeaders.mkString("\t"))
     
-    val filtered = rels.filter({ case (freq, context) => doHaveRelationFilter(context) })
-    val outputRows = filtered.flatMap { case (freq, context) => 
+    val filtered = rels.filter({ case context => doHaveRelationFilter(context) }).filter({ case context => context.rel.exists(_.isVerb) })
+    val outputRows = filtered.flatMap { case context => 
       try { 
-        inst.outputRows(freq, context)
+        inst.outputAllRows(Seq(context))
       } catch { case e: Exception => { e.printStackTrace; Seq.empty } }
     }
     outputRows.zipWithIndex foreach { case (string, index) =>
@@ -355,13 +369,9 @@ object RelationTabulator {
     case h :: t => for (xh <- h; xt <- cartesianProduct(t)) yield xh :: xt
   }
   
-  def tokensForRel(rel: String): Seq[PostaggedToken] = {
-    Seq.empty
-  }
-  
-  def doHaveRelationFilter(context: TypeContext): Boolean = {
+  def doHaveRelationFilter(context: FreqRelTypeContext): Boolean = {
     
-    val tokens = tokensForRel(context.rel)
+    val tokens = context.rel
     val tokenPairs = tokens.zip(tokens.drop(1))
     !tokenPairs.exists { case (first, second) => 
       val doHave = Set("do", "have").contains(first.string.toLowerCase)

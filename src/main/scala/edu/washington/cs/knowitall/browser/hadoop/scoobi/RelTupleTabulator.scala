@@ -15,6 +15,7 @@ import edu.washington.cs.knowitall.nlp.util.ArgContext
 import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
 
 import edu.washington.cs.knowitall.nlp.util.RelTupleProcessor._
+import edu.washington.cs.knowitall.nlp.util.RelationTabulator._
 import RelationCounter._
 
 import edu.washington.cs.knowitall.tool.postag.OpenNlpPostagger
@@ -28,10 +29,6 @@ case class TypeContext(
   val arg2s: Seq[(String, Int)]) {
 
   import RelTupleTabulator.postagger
-  
-  lazy val relTokens: Seq[PostaggedToken] = {
-    postagger.postag(rel)
-  }
   
   private def formatArgs(args: Seq[(String, Int)]): String = args.map({ case (arg, freq) => "%s(%d)".format(arg, freq) }).mkString(" | ")
   
@@ -52,21 +49,24 @@ case class TypeContext(
 
 object TypeContext {
 
-  private def parseArgFreq(string: String): (String, Int) = {
-    val breakIndex = string.dropRight(1).lastIndexWhere(_ == '(')
-    val arg = string.take(breakIndex - 1)
-    val freq = string.drop(breakIndex).toInt
-    (arg, freq)
+  private def parseArgFreq(string: String): Option[(String, Int)] = try {
+    val trimmed = string.dropRight(1)
+    val breakIndex = trimmed.lastIndexWhere(_ == '(')
+    val arg = trimmed.take(breakIndex)
+    val freq = trimmed.drop(breakIndex+1).toInt
+    Some((arg, freq))
+  } catch {
+    case e => { e.printStackTrace(); System.err.println("ParseArgFreq error: %s".format(string)); None }
   }
 
   def fromString(string: String): Option[TypeContext] = string.split("\t") match {
     case Array(freq, rel, arg1Type, arg2Type, arg1Strings, arg2Strings, _*) => {
       try {
-        val arg1s = arg1Strings.split(" | ").map(parseArgFreq _)
-        val arg2s = arg2Strings.split(" | ").map(parseArgFreq _)
+        val arg1s = arg1Strings.split(" \\| ").flatMap(parseArgFreq _)
+        val arg2s = arg2Strings.split(" \\| ").flatMap(parseArgFreq _)
         Some(TypeContext(arg1Type, rel, arg2Type, freq.toInt, arg1s, arg2s))
       } catch {
-        case e => { e.printStackTrace(); None }
+        case e => { e.printStackTrace(); System.err.println("TypeContext couldn't parse: %s".format(string)); None }
       }
     }
     case _ => { System.err.println("TypeContext couldn't parse: %s".format(string)); None }
