@@ -149,7 +149,7 @@ object RelTupleTabulator extends ScoobiApp {
     // as well as the most common arg1/arg2 strings for each (arg1Type, arg2Type) pair.
     val typeContexts = groupsWithSizes.flatMap {
       case (rel, (contexts, size)) =>
-        val typeContexts = buildTypeContext(rel, contexts.take(500000).flatMap(ArgContext.fromString _)).toSeq.sortBy(-_.freq)
+        val typeContexts = buildTypeContext(rel, contexts.take(50000).flatMap(ArgContext.fromString _)).toSeq.sortBy(-_.freq)
         typeContexts.take(15).map { context => "%d\t%s".format(size, context.toString) }
     }
 

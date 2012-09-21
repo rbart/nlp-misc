@@ -70,35 +70,48 @@ class RelationTabulator(
     
     val verbIndex = context.relTokens.lastIndexWhere(_.isVerb)
     val adjIdxs = adjIndexes(context.relTokens)
+    
+    // this contains the various wordnet word senses for each content word in the relation.
+    // It is a list of lists, where the elements are wrappers for an optional wordnet word.
+    // in the case that the token is not a content word, the wrapper contains an empty word field.
     val tokenLists = context.relTokens.zipWithIndex.map { case (token, index) =>      
       val words = wnWords(token).take(maxSensesPerWord).toList
       if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) { words.map(word => WordnetToken(token, Some(word))) }
       else { List(WordnetToken(token, None)) }
     }
     
-    val wordnetRelations = cartesianProduct(tokenLists.toList).map(WordnetRelation.apply _)
+    // we need to construct WordnetRelations that cover all senses of the content words, while containing only
+    // a single content word at a time. e.g. for relation "a b c" where a,b,c are content words with senses a0, a1, etc,
+    // and "a" means word a as a non-content word,
+    // we want:
+    // a0, b, c
+    // a1, b, c
+    // ...
+    // a, b0, c
+    // ...
+    // a, b, c0
     
-    val result = wordnetRelations.map(outputRow(relFreq, context)  _).take(maxSenseCombos)
+    val relationCombos = (0 until tokenLists.length).map({ i =>
+      val tokensBefore = tokenLists.take(i).flatMap(_.headOption).map(_.copy(wordOpt = None))
+      val tokensAfter = tokenLists.drop(i+1).flatMap(_.headOption).map(_.copy(wordOpt = None))
+      tokenLists(i).flatMap(wordnetToken => tokensBefore ++ Seq(wordnetToken) ++ tokensAfter)
+    }).flatten
     
+    Seq("not implemented")
     
-    result
   }
   
-  def outputRow(relFreq: Int, context: TypeContext)(wnRel: WordnetRelation): String = {
+  def senseRow(word: Word, rel: WordnetRelation): String = {
+    // wordbracketstring,
+    // gloss string,
+    // synset,
+    // h/e chains
     Seq(
-      wnRel.toString,
-      relFreq,
-      "", // "keep?"
-      "", // "syn_of"
-      context.arg1sFormatted,
-      context.arg2sFormatted, 
-      " ",  // empty column
-      "",   // arg1 sense (by hand)
-      "",   // arg2 sense (by hand)
-      wnRel.glossStrings.mkString(" | "),
-      " ", // empty column for excel
-      wnRel.synStrings,
-      (wnRel.senseChainStrings).mkString("\t")
+      "S",
+      wordBracketString(word),
+      glossString(word),
+      rel.synStrings,
+      rel.senseChainStrings
     ).mkString("\t")
   }
   
