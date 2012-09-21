@@ -257,7 +257,7 @@ class RelationTabulator(
  */
 object RelationTabulator {
 
-  val wnHome = "/WordNet-3.0/file_properties.xml"
+  val wnHome = "/scratch/WordNet-3.0/file_properties.xml"
   
   def getInstance: RelationTabulator = getInstance(wnHome)
   
@@ -268,7 +268,7 @@ object RelationTabulator {
   
   def fetchDictionary(wnHome: String): Dictionary = {
 
-    val dict = Dictionary.getInstance(this.getClass.getResource(wnHome).openStream())
+    val dict = Dictionary.getInstance(new java.io.FileInputStream(wnHome))
     return dict;
   }
   
