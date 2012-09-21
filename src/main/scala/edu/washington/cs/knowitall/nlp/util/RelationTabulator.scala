@@ -19,6 +19,8 @@ import java.io.FileNotFoundException
 import java.net.URL
 import edu.mit.jwi.item.Pointer
 
+import scala.collection.mutable
+
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.TypeContext
 
 case class CountedRelation(val rel: String, val postags: String, val freq: Int, val arg1s: Seq[String], val arg2s: Seq[String]) {
@@ -94,11 +96,19 @@ class RelationTabulator(
     val relationCombos = (0 until tokenLists.length).map({ i =>
       val tokensBefore = tokenLists.take(i).flatMap(_.headOption).map(_.copy(wordOpt = None))
       val tokensAfter = tokenLists.drop(i+1).flatMap(_.headOption).map(_.copy(wordOpt = None))
-      tokenLists(i).flatMap(wordnetToken => tokensBefore ++ Seq(wordnetToken) ++ tokensAfter)
+      val combos = tokenLists(i).map(wordnetToken => tokensBefore ++ Seq(wordnetToken) ++ tokensAfter)
+      combos map WordnetRelation.apply
     }).flatten
     
-    Seq("not implemented")
+    val outputLines = new mutable.LinkedList[String]
+    outputLines.add(Seq("Senses", "term", "gloss", "synset", "h/e chains").mkString("\t"))
     
+    relationCombos.foreach { rel =>
+      val wnTokenOpt = rel.tokens.find(_.wordOpt.isDefined)
+      wnTokenOpt.foreach { wnToken => outputLines.add(senseRow(wnToken.word, rel)) }
+    }
+    
+    outputLines
   }
   
   def senseRow(word: Word, rel: WordnetRelation): String = {

@@ -140,7 +140,7 @@ object RelTupleTabulator extends ScoobiApp {
     val groupSizes = grouped.flatMap {
       case (rel, argContexts) =>
         val size = argContexts.size
-        if (size >= minFrequency && size <= maxFrequency) Some((rel, size)) else None
+        if (size >= minFrequency && size <= maxFrequency) Some((rel, size.toString)) else None
     }
 
     val groupsWithSizes = grouped.join(groupSizes)
@@ -150,7 +150,7 @@ object RelTupleTabulator extends ScoobiApp {
     val typeContexts = groupsWithSizes.flatMap {
       case (rel, (contexts, size)) =>
         val typeContexts = buildTypeContext(rel, contexts.iterator.flatMap(ArgContext.fromString _).take(50000)).toSeq.sortBy(-_.freq)
-        typeContexts.take(15).map { context => "%d\t%s".format(size, context.toString) }
+        typeContexts.take(15).map { context => "%s\t%s".format(size, context.toString) }
     }
 
     persist(toTextFile(typeContexts, outputPath + "/"))
