@@ -74,7 +74,7 @@ object RelTupleTabulator extends ScoobiApp {
     
     def toArgString(tokens: Seq[PostaggedToken]) = tokens.map(_.string).mkString(" ")
     
-    relContexts.iterator.take(1000000).foreach { context =>
+    relContexts.foreach { context =>
       val typePair = toTypePair(context)
       pairCounts.getOrElseUpdate(typePair, MutInt.zero).inc
       val argCount = argCounts.getOrElseUpdate(typePair, {
@@ -132,8 +132,8 @@ object RelTupleTabulator extends ScoobiApp {
     // take rel, Iterable[ArgContext] and traverse the iterable to find most common (arg1Type, arg2Type) pairs,
     // as well as the most common arg1/arg2 strings for each (arg1Type, arg2Type) pair.
     val typeContexts = groupsWithSizes.flatMap { case (rel, (contexts, size)) =>
-      val typeContexts = buildTypeContext(rel, contexts.flatMap(ArgContext.fromString _)).toSeq.sortBy(-_.freq)
-      typeContexts.map { context => "%d\t%s".format(size, context.toString) }
+      val typeContexts = buildTypeContext(rel, contexts.take(500000).flatMap(ArgContext.fromString _)).toSeq.sortBy(-_.freq)
+      typeContexts.take(15).map { context => "%d\t%s".format(size, context.toString) }
     }
     
     persist(toTextFile(typeContexts, outputPath + "/"))
