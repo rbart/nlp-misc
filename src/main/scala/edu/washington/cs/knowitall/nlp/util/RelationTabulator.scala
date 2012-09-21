@@ -19,6 +19,8 @@ import java.io.FileNotFoundException
 import java.net.URL
 import edu.mit.jwi.item.Pointer
 
+import edu.washington.cs.knowitall.browser.hadoop.scoobi.TypeContext
+
 case class CountedRelation(val rel: String, val postags: String, val freq: Int, val arg1s: Seq[String], val arg2s: Seq[String]) {
   val tokens: Seq[PostaggedToken] = rel.split(" ").zip(postags.split(" ")).map { case (string, postag) => new PostaggedToken(postag, string, 0) }
 }
@@ -64,11 +66,11 @@ class RelationTabulator(
     } toSet
   }
   
-  def outputRows(rel: CountedRelation): Seq[String] = {
+  def outputRows(relFreq: Int, context: TypeContext): Seq[String] = {
     
-    val verbIndex = rel.tokens.lastIndexWhere(_.isVerb)
-    val adjIdxs = adjIndexes(rel.tokens)
-    val tokenLists = rel.tokens.zipWithIndex.map { case (token, index) =>      
+    val verbIndex = context.relTokens.lastIndexWhere(_.isVerb)
+    val adjIdxs = adjIndexes(context.relTokens)
+    val tokenLists = context.relTokens.zipWithIndex.map { case (token, index) =>      
       val words = wnWords(token).take(maxSensesPerWord).toList
       if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) { words.map(word => WordnetToken(token, Some(word))) }
       else { List(WordnetToken(token, None)) }
@@ -76,20 +78,20 @@ class RelationTabulator(
     
     val wordnetRelations = cartesianProduct(tokenLists.toList).map(WordnetRelation.apply _)
     
-    val result = wordnetRelations.map(outputRow(rel)  _).take(maxSenseCombos)
+    val result = wordnetRelations.map(outputRow(relFreq, context)  _).take(maxSenseCombos)
     
     
     result
   }
   
-  def outputRow(rel: CountedRelation)(wnRel: WordnetRelation): String = {
+  def outputRow(relFreq: Int, context: TypeContext)(wnRel: WordnetRelation): String = {
     Seq(
       wnRel.toString,
-      rel.freq,
+      relFreq,
       "", // "keep?"
       "", // "syn_of"
-      rel.arg1s.mkString(" | "),
-      rel.arg2s.mkString(" | "), 
+      context.arg1sFormatted,
+      context.arg2sFormatted, 
       " ",  // empty column
       "",   // arg1 sense (by hand)
       "",   // arg2 sense (by hand)
@@ -282,7 +284,12 @@ object RelationTabulator {
     
     val inst = getInstance
       
-    val rels = Source.fromFile("/scratch/ollie-relations-sorted.txt").getLines.take(5000).flatMap(CountedRelation.fromString _).toSeq
+    def loadFreqAndContext(string: String): Option[(Int, TypeContext)] = {
+      val split = string.split("\t")
+      TypeContext.fromString(split.drop(1).mkString("\t")).map { context => (split(0).toInt, context) }
+    }
+    
+    val rels = Source.fromFile("/scratch/relations-tabulated.txt").getLines.take(5000).flatMap(loadFreqAndContext _).toSeq
     
     //val rels = Seq("251821\tbe part of\tVBZ NN PP").flatMap(CountedRelation.fromString _).toSeq
     
@@ -305,10 +312,10 @@ object RelationTabulator {
     
     println(columnHeaders.mkString("\t"))
     
-    val filtered = rels.filter(doHaveRelationFilter _)
-    val outputRows = filtered.flatMap { rel => 
+    val filtered = rels.filter({ case (freq, context) => doHaveRelationFilter(context) })
+    val outputRows = filtered.flatMap { case (freq, context) => 
       try { 
-        inst.outputRows(rel)
+        inst.outputRows(freq, context)
       } catch { case e: Exception => { e.printStackTrace; Seq.empty } }
     }
     outputRows.zipWithIndex foreach { case (string, index) =>
@@ -325,9 +332,13 @@ object RelationTabulator {
     case h :: t => for (xh <- h; xt <- cartesianProduct(t)) yield xh :: xt
   }
   
-  def doHaveRelationFilter(rel: CountedRelation): Boolean = {
+  def tokensForRel(rel: String): Seq[PostaggedToken] = {
+    Seq.empty
+  }
+  
+  def doHaveRelationFilter(context: TypeContext): Boolean = {
     
-    val tokens = rel.tokens
+    val tokens = tokensForRel(context.rel)
     val tokenPairs = tokens.zip(tokens.drop(1))
     !tokenPairs.exists { case (first, second) => 
       val doHave = Set("do", "have").contains(first.string.toLowerCase)
