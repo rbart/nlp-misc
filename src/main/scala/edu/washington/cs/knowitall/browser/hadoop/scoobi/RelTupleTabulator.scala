@@ -137,19 +137,22 @@ object RelTupleTabulator extends ScoobiApp {
 
     val grouped = tuples.groupByKey
 
-    val groupSizes = grouped.flatMap {
-      case (rel, argContexts) =>
-        val size = argContexts.size
-        if (size >= minFrequency && size <= maxFrequency) Some((rel, size.toString)) else None
+    val groupSizes = grouped.flatMap { case (rel, argContexts) => 
+      val limitedContexts = new mutable.MutableList[String]
+      var size = 0
+      for (context <- argContexts) {
+        size += 1
+        if (size <= 250000) limitedContexts += context
+      }
+        
+      if (size >= minFrequency && size <= maxFrequency) Some((rel, (size.toString, limitedContexts.toIterable))) else None
     }
-
-    val groupsWithSizes = grouped.join(groupSizes)
 
     // take rel, Iterable[ArgContext] and traverse the iterable to find most common (arg1Type, arg2Type) pairs,
     // as well as the most common arg1/arg2 strings for each (arg1Type, arg2Type) pair.
-    val typeContexts = groupsWithSizes.flatMap {
-      case (rel, (contexts, size)) =>
-        val typeContexts = buildTypeContext(rel, contexts.iterator.flatMap(ArgContext.fromString _).take(50000)).toSeq.sortBy(-_.freq)
+    val typeContexts = groupSizes.flatMap {
+      case (rel, (size, contexts)) =>
+        val typeContexts = buildTypeContext(rel, contexts.iterator.take(250000).flatMap(ArgContext.fromString _)).toSeq.sortBy(-_.freq)
         typeContexts.take(15).map { context => "%s\t%s".format(size, context.toString) }
     }
 
@@ -165,12 +168,12 @@ object RelTupleTabulator extends ScoobiApp {
   def toTuple(inputRecord: String): Option[(String, String)] = {
     try {
       val esr = new ExtractionSentenceRecord(inputRecord)
-      val relTokens = joinTokensAndPostags(esr.norm1Rel, esr.norm1RelPosTags) filter filterTokens map stemToken
+      val relTokens = joinTokensAndPostags(esr.norm1Rel.toLowerCase, esr.norm1RelPosTags) filter filterTokens map stemToken
       val relString = relTokens.map(_.string).mkString(" ")
       if (relTokens.isEmpty || relString.startsWith("'")) None
       else {
-        val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens map stemToken
-        val arg2Tokens = joinTokensAndPostags(esr.norm1Arg2, esr.norm1Arg2PosTags) filter filterTokens map stemToken
+        val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens
+        val arg2Tokens = joinTokensAndPostags(esr.norm1Arg2, esr.norm1Arg2PosTags) filter filterTokens
         Some(relString, ArgContext(arg1Tokens, arg2Tokens).toString)
       }
     } catch { case e: Exception => { e.printStackTrace; None } }

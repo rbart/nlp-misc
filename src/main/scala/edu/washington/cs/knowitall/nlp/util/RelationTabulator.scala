@@ -23,6 +23,7 @@ import java.util.LinkedList
 
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.TypeContext
 import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
+import scala.collection.mutable
 
 case class FreqRelTypeContext(val freq: Int, val rel: Seq[PostaggedToken], val typeContext: TypeContext) {
   override def toString = {
@@ -70,13 +71,27 @@ class RelationTabulator(
   }
   
   def outputAllRows(contexts: Seq[FreqRelTypeContext]): Seq[String] = {
-    outputSenseRows(contexts.head)
+    if (contexts.isEmpty) return Seq.empty
+    outputSenseRows(contexts)
+  }
+
+  def outputContextRows(relContentWords: Seq[String], contexts: Seq[FreqRelTypeContext]): Seq[String] = {
+    
+    val spacers = relContentWords.map(_ => " ")
+    val rel = contexts.head.typeContext.rel
+    
+    Seq("Contexts",
+      (Seq("C", "relation") ++ relContentWords ++ Seq("arg1_type", "arg1_terms", "arg2_type", "arg2_terms")).mkString("\t")
+      ) ++ contexts.sortBy(-_.freq).map { context =>
+        val tc = context.typeContext
+      	(Seq("C", rel) ++ spacers ++ Seq(tc.arg1Type, tc.arg1sFormatted, tc.arg2Type, tc.arg2sFormatted)).mkString("\t")
+      }
   }
   
-  def outputSenseRows(context: FreqRelTypeContext): Seq[String] = {
+  def outputSenseRows(contexts: Seq[FreqRelTypeContext]): Seq[String] = {
     
-    System.err.println("context: %s".format(context))
-    System.err.println("contextRelTokens: %s".format(context.rel))
+    val context = contexts.head
+   
     
     val verbIndex = context.rel.lastIndexWhere(_.isVerb)
     val adjIdxs = adjIndexes(context.rel)
@@ -89,8 +104,7 @@ class RelationTabulator(
       if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) { words.map(word => WordnetToken(token, Some(word))) }
       else { List(WordnetToken(token, None)) }
     }
-    
-    System.err.println("TokenLists: %s".format(tokenLists))
+
     
     // we need to construct WordnetRelations that cover all senses of the content words, while containing only
     // a single content word at a time. e.g. for relation "a b c" where a,b,c are content words with senses a0, a1, etc,
@@ -109,8 +123,7 @@ class RelationTabulator(
       val combos = tokenLists(i).map(wordnetToken => tokensBefore ++ Seq(wordnetToken) ++ tokensAfter)
       combos map WordnetRelation.apply
     }).flatten
-    
-    System.err.println("RelationCombos: %s".format(relationCombos))
+
     
     val outputLines = new LinkedList[String]()
     outputLines.add(Seq("Senses", "term", "gloss", "synset", "h/e chains").mkString("\t"))
@@ -120,7 +133,11 @@ class RelationTabulator(
       wnTokenOpt.foreach { wnToken => outputLines.add(senseRow(wnToken.word, rel)) }
     }
     
-    outputLines
+    val relContentWords = tokenLists.flatMap(_.find(_.wordOpt.isDefined)).map(_.token.string)
+    
+    val relInfo = Seq(context.freq, context.rel.map(_.string).mkString(" "), context.rel.map(_.postag).mkString(" ")).mkString("\t")
+    
+    Seq(relInfo) ++ outputLines ++ outputContextRows(relContentWords, contexts)
   }
   
   def senseRow(word: Word, rel: WordnetRelation): String = {
@@ -133,7 +150,7 @@ class RelationTabulator(
       wordBracketString(word),
       glossString(word),
       rel.synStrings,
-      rel.senseChainStrings
+      rel.senseChainStrings.mkString("\t")
     ).mkString("\t")
   }
   
@@ -326,38 +343,38 @@ object RelationTabulator {
       
 
     
-    val rels = input.getLines.take(5000).flatMap(FreqRelTypeContext.fromString _).toSeq
+    val rels = input.getLines.flatMap(FreqRelTypeContext.fromString _).toSeq
     
     //val rels = Seq("251821\tbe part of\tVBZ NN PP").flatMap(CountedRelation.fromString _).toSeq
     
-    val columnHeaders = Seq(
-      "rel_ID",
-      "relation",
-      "freq",
-      "keep?",
-      "syn_of",
-      "arg1",
-      "arg2",
-      "<empty>",
-      "argSense1",
-      "argSense2",
-      "gloss",
-      "<empty>",
-      "synonyms",
-      "h/e chains"
-    )
-    
-    println(columnHeaders.mkString("\t"))
     
     val filtered = rels.filter({ case context => doHaveRelationFilter(context) }).filter({ case context => context.rel.exists(_.isVerb) })
-    val outputRows = filtered.flatMap { case context => 
-      try { 
-        inst.outputAllRows(Seq(context))
-      } catch { case e: Exception => { e.printStackTrace; Seq.empty } }
+    
+    // this is horrible, ugly code, written while desperately behind and trying to just get something that works.
+    
+    var lastRel: String = ""
+    var numRels = 0
+    val accumulator = new mutable.MutableList[FreqRelTypeContext]()
+    
+    scala.util.control.Breaks.breakable { 
+    
+    for (context <- filtered) {
+      if (numRels > 5000) scala.util.control.Breaks.break()
+      val currentRel = context.typeContext.rel
+      if (currentRel.equals(lastRel)) {
+        accumulator += context
+      } else {
+        lastRel = currentRel
+        inst.outputAllRows(accumulator.toSeq) foreach println
+        numRels += 1
+        accumulator.clear()
+        accumulator += context
+      }
     }
-    outputRows.zipWithIndex foreach { case (string, index) =>
-      println("%s\t%s".format(index, string))
+    inst.outputAllRows(accumulator.toSeq) foreach println
+    
     }
+    
     
 //    val idxword = inst.wnDict.lookupIndexWord(POS.NOUN, "president")
 //    val senses = idxword.getSenses()
