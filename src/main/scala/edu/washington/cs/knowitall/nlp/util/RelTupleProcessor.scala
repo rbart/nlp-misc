@@ -11,15 +11,20 @@ import net.sf.extjwnl.data.Synset
 import net.sf.extjwnl.data.PointerType
 import net.sf.extjwnl.data.Pointer
 
+import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.ExtractionSentenceRecord
+
 import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
-case class ArgContext(val arg1: Seq[PostaggedToken], val arg2: Seq[PostaggedToken]) {
+import edu.washington.cs.knowitall.nlp.ChunkedSentence
+
+case class ArgContext(val arg1: Seq[PostaggedToken], val arg2: Seq[PostaggedToken], val esr: ExtractionSentenceRecord) {
+  
   override def toString = {
     val arg1Tokens = arg1.map(_.string).mkString(" ")
     val arg1Postags = arg1.map(_.postag).mkString(" ")
     val arg2Tokens = arg2.map(_.string).mkString(" ")
     val arg2Postags = arg2.map(_.postag).mkString(" ")
-    Seq(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags).mkString("\t")
+    Seq(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags, esr.toString).mkString("\t")
   }
 }
 
@@ -33,13 +38,15 @@ object ArgContext {
   }
 
   def fromString(str: String): Option[ArgContext] = {
-    str.split("\t") match {
-      case Array(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags, _*) => {
-        val arg1 = joinTokensAndPostags(arg1Tokens, arg1Postags)
-        val arg2 = joinTokensAndPostags(arg2Tokens, arg2Postags)
-        Some(ArgContext(arg1, arg2))
-      }
-      case _ => None
+    val split = str.split("\t")
+    if (split.length > 4) {
+      val arg1 = joinTokensAndPostags(split(0), split(1))
+      val arg2 = joinTokensAndPostags(split(2), split(3))
+      val esr = new ExtractionSentenceRecord(split.drop(4))
+      Some(ArgContext(arg1, arg2, esr))
+    } else {
+      System.err.println("Error parsing ArgContext: %s".format(str))
+      None
     }
   }
 }
@@ -144,6 +151,8 @@ object RelTupleProcessor {
     // something encapsulate this, so that we ignore proper nouns (for now), 
     // and treat pronouns accordingly.
   }
+  
+
 
   val topClasses = Set(
     "abstraction[n6]",

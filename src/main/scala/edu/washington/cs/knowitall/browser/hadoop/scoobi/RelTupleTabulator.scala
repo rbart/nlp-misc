@@ -16,6 +16,7 @@ import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
 
 import edu.washington.cs.knowitall.nlp.util.RelTupleProcessor._
 import edu.washington.cs.knowitall.nlp.util.RelationTabulator._
+import edu.washington.cs.knowitall.nlp.util.StanfordNerHelper
 import RelationCounter._
 
 import edu.washington.cs.knowitall.tool.postag.OpenNlpPostagger
@@ -83,10 +84,17 @@ object RelTupleTabulator extends ScoobiApp {
     // we need to count the frequency of:
     // -- (arg1Type, arg2Type) pairs,
     val pairCounts = new mutable.HashMap[(String, String), MutInt]
-    val argCounts = new mutable.HashMap[(String, String), (mutable.Map[String, MutInt], mutable.Map[String, MutInt])]
+    val argCounts = new mutable.HashMap[(String, String), (mutable.Map[String, MutInt], mutable.Map[String, MutInt])] 
 
-    def toTypePair(context: ArgContext): (String, String) = (getType(context.arg1), getType(context.arg2))
-
+    def toTypePair(context: ArgContext): (String, String) = { 
+      val typePair = (getType(context.arg1), getType(context.arg2))
+      // if wn returned "other_noun", try to do an NER lookup
+      // This is commented for testing purposes, remove it!
+      val left = if (typePair._1.equals("other_noun")) StanfordNerHelper.getWnTag(context.esr.arg1, context.esr) else typePair._1
+      val right = if (typePair._2.equals("other_noun")) StanfordNerHelper.getWnTag(context.esr.arg2, context.esr) else typePair._2
+      (left, right)
+    }
+    
     def toArgString(tokens: Seq[PostaggedToken]) = tokens.map(_.string).mkString(" ")
 
     relContexts.foreach { context =>
@@ -142,7 +150,7 @@ object RelTupleTabulator extends ScoobiApp {
       var size = 0
       for (context <- argContexts) {
         size += 1
-        if (size <= 250000) limitedContexts += context
+        if (size <= 100000) limitedContexts += context
       }
         
       if (size >= minFrequency && size <= maxFrequency) Some((rel, (size.toString, limitedContexts.toIterable))) else None
@@ -174,7 +182,8 @@ object RelTupleTabulator extends ScoobiApp {
       else {
         val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens
         val arg2Tokens = joinTokensAndPostags(esr.norm1Arg2, esr.norm1Arg2PosTags) filter filterTokens
-        Some(relString, ArgContext(arg1Tokens, arg2Tokens).toString)
+        val sent = StanfordNerHelper.getChunkedSentence(esr).getOrElse { return None }
+        Some(relString, ArgContext(arg1Tokens, arg2Tokens, esr).toString)
       }
     } catch { case e: Exception => { e.printStackTrace; None } }
   }
