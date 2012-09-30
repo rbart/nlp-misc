@@ -85,8 +85,10 @@ object RelTupleProcessor {
     // is it a pronoun?
     tokens.find(_.postag.startsWith("PRP")) match {
       case Some(tok) => {
-        if (tok.string.equals("it")) return "other_noun"
-        else return "person[n1]"
+        if (tokens.length <= 2) {
+          if (tok.string.equals("it")) return "other_noun"
+          else return "person[n1]"
+        }
       }
       case None => {}
     }
