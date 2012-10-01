@@ -127,12 +127,14 @@ object RelTupleTabulator extends ScoobiApp {
     var outputPath = ""
     var minFrequency = 0
     var maxFrequency = Integer.MAX_VALUE
+    var sampleFrac = 1.0
 
     val parser = new OptionParser() {
       arg("inputPath", "file input path, records delimited by newlines", { str => inputPath = str })
       arg("outputPath", "file output path, newlines again", { str => outputPath = str })
       intOpt("minFreq", "don't keep tuples below this frequency", { num => minFrequency = num })
       intOpt("maxFreq", "don't keep tuples above this frequency", { num => maxFrequency = num })
+      doubleOpt("sample", "sample the input at this freq", { num => sampleFrac = num })
     }
 
     if (!parser.parse(args)) return
@@ -140,8 +142,12 @@ object RelTupleTabulator extends ScoobiApp {
     println("Parsed args: %s".format(args.mkString(" ")))
 
     val input: DList[String] = fromTextFile(inputPath)
+    
+    val sampled = input.flatMap { line =>
+      if (scala.util.Random.nextDouble <= sampleFrac) Some(line) else None  
+    }
 
-    val tuples = input flatMap toTuple
+    val tuples = sampled flatMap toTuple
 
     val grouped = tuples.groupByKey
 
