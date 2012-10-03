@@ -125,7 +125,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>edu.washington.cs.knowitall.browser.hadoop.scoobi.RelTupleTabulator</mainClass>
+							<mainClass>edu.washington.cs.knowitall.nlp.util.RelationTabulator</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

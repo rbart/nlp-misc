@@ -55,7 +55,16 @@ object RelTupleProcessor {
 
   val relTabulator = RelationTabulator.getInstance
 
-  def getChains(word: Word) = Seq(relTabulator.entailmentChain(word.getSynset), relTabulator.hypernymChain(word.getSynset))
+  def getChains(word: Word) = {
+    val chains = Seq(relTabulator.entailmentChain(word.getSynset), relTabulator.hypernymChain(word.getSynset))
+    chains.foreach { chain =>
+      val line = chain.map { synset =>
+        synset.synset.getWords().map(_.getLemma()).mkString(",")
+      }.mkString(" --> ")
+      System.err.println(line)
+    }
+    chains
+  }
 
   def findTopClass(word: Word): Option[String] = {
 
