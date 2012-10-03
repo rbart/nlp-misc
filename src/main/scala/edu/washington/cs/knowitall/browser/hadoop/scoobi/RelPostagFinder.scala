@@ -9,12 +9,14 @@ import scala.collection.mutable
 import scala.Array.canBuildFrom
 import scala.Option.option2Iterable
 
-import edu.washington.cs.knowitall.nlp.util.RelationTabulator._
+import edu.washington.cs.knowitall.nlp.util.WordNetHelper._
 import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
 
 import edu.washington.cs.knowitall.nlp.util.RelTupleProcessor._
 import RelationCounter._
-import RelTupleTabulator.stemToken
+import TypeContextAggregator.stemToken
+
+import edu.washington.cs.knowitall.nlp.util.TypeContext
 
 // a hack to annotate relation strings with their most common part-of-speech signature
 object RelPostagFinder extends ScoobiApp {
@@ -42,6 +44,8 @@ object RelPostagFinder extends ScoobiApp {
   
   def run(): Unit = {
     
+    // Don't use me directly!!!!
+    
     var freqTypeContexts: String = ""
     var rawRecords: String = ""
     var outputPath: String = ""
@@ -58,10 +62,18 @@ object RelPostagFinder extends ScoobiApp {
     System.err.println("outputPath: %s".format(outputPath))
     
     val freqTypeContextsRaw = fromTextFile(freqTypeContexts)
+    val rawEsrs = fromTextFile(rawRecords)
+        
+    val output = go(freqTypeContextsRaw, rawEsrs)
+    
+    persist(toTextFile(output, outputPath + "/"))
+  }
+  
+  def go(freqTypeContextsRaw: DList[String], rawEsrs: DList[String]): DList[String] = {
+    
     val freqTypeContextsParsed = freqTypeContextsRaw flatMap loadFreqAndContext
     val relFreqTypePairs = freqTypeContextsParsed map freqTypeToRelFreqType
     
-    val rawEsrs = fromTextFile(rawRecords)
     val relPostags = rawEsrs flatMap toRelPostags
 
     // (rel, (relPostags, freq\tTypeContext)
@@ -78,7 +90,6 @@ object RelPostagFinder extends ScoobiApp {
           case None => Seq.empty
         }
     }
-    
-    persist(toTextFile(output, outputPath + "/"))
+        output
   }
 }

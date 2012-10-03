@@ -17,43 +17,9 @@ import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
 import edu.washington.cs.knowitall.nlp.ChunkedSentence
 
-case class ArgContext(val arg1: Seq[PostaggedToken], val arg2: Seq[PostaggedToken], val esr: ExtractionSentenceRecord) {
-  
-  override def toString = {
-    val arg1Tokens = arg1.map(_.string).mkString(" ")
-    val arg1Postags = arg1.map(_.postag).mkString(" ")
-    val arg2Tokens = arg2.map(_.string).mkString(" ")
-    val arg2Postags = arg2.map(_.postag).mkString(" ")
-    Seq(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags, esr.toString).mkString("\t")
-  }
-}
-
-object ArgContext {
-
-  def joinTokensAndPostags(tokens: String, postags: String): Seq[PostaggedToken] = {
-    tokens.split(" ").zip(postags.split(" ")).map {
-      case (tok, pos) =>
-        new PostaggedToken(pos, tok, 0)
-    }
-  }
-
-  def fromString(str: String): Option[ArgContext] = {
-    val split = str.split("\t")
-    if (split.length > 4) {
-      val arg1 = joinTokensAndPostags(split(0), split(1))
-      val arg2 = joinTokensAndPostags(split(2), split(3))
-      val esr = new ExtractionSentenceRecord(split.drop(4))
-      Some(ArgContext(arg1, arg2, esr))
-    } else {
-      System.err.println("Error parsing ArgContext: %s".format(str))
-      None
-    }
-  }
-}
-
 object RelTupleProcessor {
 
-  val relTabulator = RelationTabulator.getInstance
+  val relTabulator = WordNetHelper.getInstance
 
   def getChains(word: Word) = {
     val chains = Seq(relTabulator.entailmentChain(word.getSynset), relTabulator.hypernymChain(word.getSynset))
@@ -102,8 +68,8 @@ object RelTupleProcessor {
       case None => {}
     }
 
-    // is it a proper noun?
-    if (tokens.exists(_.isProperNoun)) return "other_noun"
+    // is it a proper noun that wordnet probably doesn't know about?
+    if (tokens.length >= 3 && tokens.exists(_.isProperNoun)) return "other_noun"
 
     // combine all "NN" tags into a string and look this up:   
     val lookupString = tokens.dropWhile(!_.isNoun).takeWhile(_.isNoun).map(_.string).mkString(" ")
@@ -163,8 +129,6 @@ object RelTupleProcessor {
     // and treat pronouns accordingly.
   }
   
-
-
   val topClasses = Set(
     "abstraction[n6]",
     "action[n1]",
