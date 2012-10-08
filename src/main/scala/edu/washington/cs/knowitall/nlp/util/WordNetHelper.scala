@@ -74,7 +74,6 @@ class WordNetHelper(
   def outputSenseRows(contexts: Seq[FreqRelTypeContext]): Seq[String] = {
     
     val context = contexts.head
-   
     
     val verbIndex = context.rel.lastIndexWhere(_.isVerb)
     val adjIdxs = adjIndexes(context.rel)
@@ -87,7 +86,6 @@ class WordNetHelper(
       if (!words.isEmpty && (index == verbIndex || token.isNoun || adjIdxs.contains(index))) { words.map(word => WordnetToken(token, Some(word))) }
       else { List(WordnetToken(token, None)) }
     }
-
     
     // we need to construct WordnetRelations that cover all senses of the content words, while containing only
     // a single content word at a time. e.g. for relation "a b c" where a,b,c are content words with senses a0, a1, etc,
@@ -101,20 +99,24 @@ class WordNetHelper(
     // a, b, c0
     
     val relationCombos = (0 until tokenLists.length).map({ i =>
+      
       val tokensBefore = tokenLists.take(i).flatMap(_.headOption).map(_.copy(wordOpt = None))
       val tokensAfter = tokenLists.drop(i+1).flatMap(_.headOption).map(_.copy(wordOpt = None))
-      val combos = tokenLists(i).map(wordnetToken => tokensBefore ++ Seq(wordnetToken) ++ tokensAfter)
-      combos map WordnetRelation.apply
+      
+      val currentTokens = tokenLists(i)
+      if (currentTokens.headOption.isDefined && currentTokens.head.wordOpt.isDefined && currentTokens.head.word.getLemma().equals("be")) {
+        Seq(tokensBefore ++ Seq(currentTokens.head) ++ tokensAfter) map WordnetRelation.apply
+      } else {
+        val combos = tokenLists(i).map(wordnetToken => tokensBefore ++ Seq(wordnetToken) ++ tokensAfter)
+        combos map WordnetRelation.apply
+      }
     }).flatten
 
     
     val outputLines = new LinkedList[String]()
-    outputLines.add(Seq("Senses", "term", "gloss", "synset", "h/e chains").mkString("\t"))
+    outputLines.add(Seq("Senses", "term", "synset", "h/e chains").mkString("\t"))
     
-    relationCombos.foreach { rel =>	
-      val wnTokenOpt = rel.tokens.find(_.wordOpt.isDefined)
-      wnTokenOpt.foreach { wnToken => outputLines.add(senseRow(wnToken.word, rel)) }
-    }
+    outputLines.add(senseRow(relationCombos))
     
     val relContentWords = tokenLists.flatMap(_.find(_.wordOpt.isDefined)).map(_.token.string)
     
@@ -123,17 +125,21 @@ class WordNetHelper(
     Seq(relInfo) ++ outputLines ++ outputContextRows(relContentWords, contexts)
   }
   
-  def senseRow(word: Word, rel: WordnetRelation): String = {
-    // wordbracketstring,
-    // gloss string,
-    // synset,
-    // h/e chains
+  def senseRow(rels: Seq[WordnetRelation]): String = {
+
+    val lemma = rels.head.tokens.map(_.token.string).mkString(" ")
+    
+    val synWordFreqs = rels.flatMap(_.synFreqs).flatMap { case (freq, synset) => synset.getWords.map(w => (freq*w.getUseCount(), w)) }
+
+    val synStrings = synWordFreqs.sortBy(-_._1).map(_._2.getLemma()).take(6).mkString(", ")
+    
+    val entailments = rels.flatMap(_.senseChainStrings).mkString("\t")
+    
     Seq(
       "S",
-      wordBracketString(word),
-      glossString(word),
-      rel.synStrings,
-      rel.senseChainStrings.mkString("\t")
+      lemma,
+      synStrings,
+      entailments
     ).mkString("\t")
   }
   
@@ -205,7 +211,17 @@ class WordNetHelper(
       glossWords.map { word => glossString(word) }
     }
     
-    def synStrings = contentWords.flatMap { case (token, index) => token.wordOpt }.map(word=>synString(word.getSynset)).mkString(" | ")
+    def synFreqs = {
+      val words = contentWords.flatMap { case (token, index) => token.wordOpt }
+      val synPairs = words.map { word=> 
+        (word.getUseCount, (word.getSynset)) 
+      }
+      synPairs.sortBy(-_._1)
+    }
+    
+    def synStrings = {
+      synFreqs.map(_._2).map(synString(_)).mkString(", ")
+    }
   }
   
   def glossString(word: Word): String = "(%d) %s".format(word.getUseCount, word.getSynset.getGloss)
@@ -214,7 +230,8 @@ class WordNetHelper(
   
   def wordBracketString(word: Word): String = {
     val posChar = word.getPOS().getLabel().charAt(0).toString
-    "%s[%s%s]".format(word.getLemma, posChar, getSenseNum(word))
+    val lemmaNoSpace = word.getLemma.replaceAll("\\s", "_")
+    "%s[%s%s]".format(lemmaNoSpace, posChar, getSenseNum(word))
   }
   
   def getSenseNum(word: Word): Int = {
