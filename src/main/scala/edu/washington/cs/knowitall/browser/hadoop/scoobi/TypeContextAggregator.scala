@@ -11,7 +11,7 @@ import scala.Option.option2Iterable
 import scala.collection.mutable
 import edu.washington.cs.knowitall.nlp.util.ArgContext
 import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
-import edu.washington.cs.knowitall.nlp.util.RelTupleProcessor._
+import edu.washington.cs.knowitall.nlp.util.RelTupleProcessor.getType
 import edu.washington.cs.knowitall.nlp.util.WordNetHelper._
 import edu.washington.cs.knowitall.nlp.util.StanfordNerHelper
 import RelationCounter._
