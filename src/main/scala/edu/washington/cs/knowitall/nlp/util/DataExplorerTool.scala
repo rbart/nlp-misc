@@ -44,9 +44,16 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
   }
   
   def simpleQuery(arg1Type: String, relString: String, arg2Type: String): Iterable[TypedReg] = {
-    relQueryBackend(relString) filter filterExactRel(relString) map TypedReg.fromReg filter filterMatchingTypes(arg1Type, arg2Type)
+    val backendResults = relQueryBackend(relString) 
+    System.err.println("backend results size: %d".format(backendResults.size))
+    val exactFilter = backendResults filter filterExactRel(relString) 
+    System.err.println("exactFilter results size: %d".format(exactFilter.size))
+    val typedRegs = exactFilter map TypedReg.fromReg 
+    System.err.println("typedRegs results size: %d".format(typedRegs.size))
+    val finalResults = typedRegs filter filterMatchingTypes(arg1Type, arg2Type)
+    System.err.println("finalResults results size: %d".format(finalResults.size))
+    finalResults
   }
-  
   
   def relQueryBackend(relString: String): Iterable[REG] = {
     pegf.getGroups(None, Some(relString), None, false).results
