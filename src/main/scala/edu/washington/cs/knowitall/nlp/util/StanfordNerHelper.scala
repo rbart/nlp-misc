@@ -11,6 +11,7 @@ import edu.washington.cs.knowitall.commonlib.Range
 import edu.washington.cs.knowitall.util.DefaultObjects
 import edu.washington.cs.knowitall.Sentence
 import opennlp.tools.tokenize.{TokenizerME, TokenizerModel}
+import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
 import edu.washington.cs.knowitall.Sentence
 import edu.washington.cs.knowitall.`type`.tag.StanfordNamedEntityTagger
@@ -112,8 +113,17 @@ object StanfordNerHelper {
     tagsForArg
   }
 
+  def getWnTag(arg: Seq[PostaggedToken], sentence: ChunkedSentence): String = {
+    getWnTag(arg.map(_.string).mkString(" "), sentence)
+  }
+  
   def getWnTag(arg: String, esr: ExtractionSentenceRecord): String = {
-    getTags(arg, esr).headOption match {
+    val sentence = getChunkedSentence(esr).getOrElse { return "other_noun" };
+    getWnTag(arg, esr)
+  }
+  
+  def getWnTag(arg: String, sentence: ChunkedSentence): String = {
+    getTags(arg, sentence).headOption match {
       case Some(nerClass) => {
         if (nerClass.descriptor.equals("Organization")) "organization[n1]"
         else if (nerClass.descriptor.equals("Location")) "location[n1]"

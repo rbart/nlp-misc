@@ -309,6 +309,9 @@ class WordNetHelper(
  */
 object WordNetHelper {
 
+  import java.io.PrintStream
+  import java.io.FileOutputStream
+  
   val wnHome = "/scratch/WordNet-3.0/file_properties.xml"
   
   def getInstance: WordNetHelper = getInstance(wnHome)
@@ -332,9 +335,12 @@ object WordNetHelper {
   def main(args: Array[String]): Unit = {
     
     var input: Source = Source.stdin
+    var output: PrintStream = System.out
     
     val parser = new OptionParser("Relation Tabulator") {
       opt("inputFile", "TypeContexts, tab serialized (read from stdin by default", { str => input = Source.fromFile(str) })
+      opt("outputFile", "optional place to write output, defaulkt=stdout", { str => output = new PrintStream(new FileOutputStream(str)) })
+      
     }
     
     if (!parser.parse(args)) return
@@ -343,7 +349,9 @@ object WordNetHelper {
       
 
     
-    val rels = input.getLines.flatMap(FreqRelTypeContext.fromString _).toSeq
+    val rels = input.getLines.flatMap(FreqRelTypeContext.fromString _).toSeq filter { context =>
+      context.rel.length == 1 && context.rel.head.postag.startsWith("VB") && !context.typeContext.arg1Type.equals("other_noun") && !context.typeContext.arg2Type.equals("other_noun")
+    }
     
     //val rels = Seq("251821\tbe part of\tVBZ NN PP").flatMap(CountedRelation.fromString _).toSeq
     
@@ -365,13 +373,13 @@ object WordNetHelper {
         accumulator += context
       } else {
         lastRel = currentRel
-        inst.outputAllRows(accumulator.toSeq) foreach println
+        inst.outputAllRows(accumulator.toSeq) foreach output.println
         numRels += 1
         accumulator.clear()
         accumulator += context
       }
     }
-    inst.outputAllRows(accumulator.toSeq) foreach println
+    inst.outputAllRows(accumulator.toSeq) foreach output.println
     
     }
     

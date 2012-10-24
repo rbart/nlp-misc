@@ -14,6 +14,7 @@ import edu.washington.cs.knowitall.nlp.util.ArgContext.joinTokensAndPostags
 import edu.washington.cs.knowitall.nlp.util.RelTupleProcessor.getType
 import edu.washington.cs.knowitall.nlp.util.WordNetHelper._
 import edu.washington.cs.knowitall.nlp.util.StanfordNerHelper
+import edu.washington.cs.knowitall.nlp.ChunkedSentence
 import RelationCounter._
 import edu.washington.cs.knowitall.tool.postag.OpenNlpPostagger
 import edu.washington.cs.knowitall.nlp.util.ArgContext
@@ -33,19 +34,19 @@ object TypeContextAggregator extends ScoobiApp {
     val pairCounts = new mutable.HashMap[(String, String), MutInt]
     val argCounts = new mutable.HashMap[(String, String), (mutable.Map[String, MutInt], mutable.Map[String, MutInt])] 
 
-    def toTypePair(context: ArgContext): (String, String) = { 
-      val typePair = (getType(context.arg1), getType(context.arg2))
+    def toTypePair(arg1: Seq[PostaggedToken], arg2: Seq[PostaggedToken], sentence: ChunkedSentence): (String, String) = { 
+      val typePair = (getType(arg1), getType(arg2))
       // if wn returned "other_noun", try to do an NER lookup
       // This is commented for testing purposes, remove it!
-      val left = if (typePair._1.equals("other_noun")) StanfordNerHelper.getWnTag(context.esr.arg1, context.esr) else typePair._1
-      val right = if (typePair._2.equals("other_noun")) StanfordNerHelper.getWnTag(context.esr.arg2, context.esr) else typePair._2
+      val left = if (typePair._1.equals("other_noun")) StanfordNerHelper.getWnTag(arg1, sentence) else typePair._1
+      val right = if (typePair._2.equals("other_noun")) StanfordNerHelper.getWnTag(arg2, sentence) else typePair._2
       (left, right)
     }
     
     def toArgString(tokens: Seq[PostaggedToken]) = tokens.map(_.string).mkString(" ")
 
     relContexts.foreach { context =>
-      val typePair = toTypePair(context)
+      val typePair = toTypePair(context.arg1, context.arg2, StanfordNerHelper.getChunkedSentence(context.esr).get)
       pairCounts.getOrElseUpdate(typePair, MutInt.zero).inc
       val argCount = argCounts.getOrElseUpdate(typePair, {
         (new mutable.HashMap[String, MutInt], new mutable.HashMap[String, MutInt])
