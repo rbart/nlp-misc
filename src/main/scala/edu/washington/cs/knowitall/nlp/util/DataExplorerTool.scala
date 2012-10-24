@@ -96,7 +96,7 @@ object DataExplorerTool {
     typedRegs foreach { typedReg =>
       println("%s\t%s\t%s".format(typedReg.arg1Type, typedReg.arg2Type, typedReg.reg))  
     }
-    println("Total %d results.".format(typedRegs))
+    println("Total %d results.".format(typedRegs.size))
   }
 }
 
