@@ -90,8 +90,8 @@ object DataExplorerTool {
     if (!parser.parse(args)) return
     
     // open a pegf!!!
-    val searchMaxGroups = 100
-    val readMaxInstances = 1000
+    val searchMaxGroups = 1000
+    val readMaxInstances = 5000
     val timeoutMillis = 10000
     
     val pegf = new ParallelExtractionGroupFetcher(ParallelExtractionGroupFetcher.defaultIndexes.split(":"), searchMaxGroups, readMaxInstances, timeoutMillis)
