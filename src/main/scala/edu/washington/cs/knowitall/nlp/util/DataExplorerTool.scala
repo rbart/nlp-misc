@@ -37,13 +37,13 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
       //val arg1Types1 = instances.toIterable.map(i => StanfordNerHelper.getWnTag(i.extraction.arg1Text, chunkedSentence(i.extraction.sentenceTokens)))
       //val arg1Types2 = chunkedSentences(reg).map(s => StanfordNerHelper.getWnTag(reg.arg1.norm, s))
       //val arg1Types = arg1Types1 ++ arg1Types2;
-      val arg1Types = instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.arg1Tokens))
+      val arg1Types = instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.arg1Tokens)) ++ instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.normTokens(i.extraction.arg1Interval)))
       val arg1Type = mostFrequent(arg1Types.filterNot(s => s equals "other_noun")).getOrElse("other_noun");
       
       //val arg2Types1 = instances.toIterable.map(i => StanfordNerHelper.getWnTag(i.extraction.arg2Text, chunkedSentence(i.extraction.sentenceTokens)))
       //val arg2Types2 = chunkedSentences(reg).map(s => StanfordNerHelper.getWnTag(reg.arg2.norm, s))
       //val arg2Types = arg2Types1 ++ arg2Types2;
-      val arg2Types = instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.arg2Tokens))
+      val arg2Types = instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.arg2Tokens)) ++ instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.normTokens(i.extraction.arg2Interval)))
       val arg2Type = mostFrequent(arg2Types.filterNot(s => s equals "other_noun")).getOrElse("other_noun");
             
       new TypedReg(arg1Type, arg2Type, reg) // done
@@ -51,14 +51,17 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
   }
   
   def simpleQuery(arg1Type: String, relString: String, arg2Type: String): Iterable[TypedReg] = {
+    
+    val tupleString = "(%s, %s, %s)".format(arg1Type, relString, arg2Type)
+    
     val backendResults = relQueryBackend(relString) 
-    println("backend results size: %d".format(backendResults.size))
+    System.err.println("%s backend results size: %d".format(tupleString, backendResults.size))
     val exactFilter = backendResults filter filterExactRel(relString) 
-    println("exactFilter results size: %d".format(exactFilter.size))
+    System.err.println("%s exactFilter results size: %d".format(tupleString, exactFilter.size))
     val typedRegs = exactFilter map TypedReg.fromReg 
-    println("typedRegs results size: %d".format(typedRegs.size))
+    System.err.println("%s typedRegs results size: %d".format(tupleString, typedRegs.size))
     val finalResults = typedRegs filter filterMatchingTypes(arg1Type, arg2Type)
-    println("finalResults results size: %d".format(finalResults.size))
+    System.err.println("%s finalResults results size: %d".format(tupleString, finalResults.size))
     finalResults
   }
   
@@ -122,12 +125,12 @@ object DataExplorerTool {
     val condProb = overlap.toDouble / freq2
     val balanced = math.sqrt(pmi * condProb)
     
-    printf("Freq t1: %d".format(freq1))
-    printf("Freq t2: %d".format(freq2))
-    printf("Freq overlap: %d".format(overlap))
-    printf("PMI: %.02f".format(pmi))
-    printf("P(t1|t2): %.02f".format(condProb))
-    printf("Balanced: %.02f".format(balanced))
+    println("Freq t1: %d".format(freq1))
+    println("Freq t2: %d".format(freq2))
+    println("Freq overlap: %d".format(overlap))
+    println("PMI: %.02f".format(pmi))
+    println("P(t1|t2): %.02f".format(condProb))
+    println("Balanced: %.02f".format(balanced))
   }
 }
 
