@@ -85,32 +85,49 @@ object DataExplorerTool {
     
     var arg1Type = ""
     var arg2Type = ""
-    var relString = ""
+    var relString1 = ""
+    var relString2 = ""
     
     // take a query from the user 
     val parser = new OptionParser("DataExplorerTool") {
       arg("arg1Type", "arg1Type", { str => arg1Type = str})
       arg("arg2Type", "arg2Type", { str => arg2Type = str })
-      arg("relString", "relString", { str => relString = str })
+      arg("relString1", "relString1", { str => relString1 = str })
+      arg("relString2", "relString2", { str => relString2 = str })
     }
     
     if (!parser.parse(args)) return
     
     // open a pegf!!!
-    val searchMaxGroups = 1000
-    val readMaxInstances = 5000
-    val timeoutMillis = 10000
+    val searchMaxGroups = 20000
+    val readMaxInstances = 40000
+    val timeoutMillis = 20000
     
     val pegf = new ParallelExtractionGroupFetcher(ParallelExtractionGroupFetcher.defaultIndexes.split(":"), searchMaxGroups, readMaxInstances, timeoutMillis)
     
     val tool = new DataExplorerTool(pegf)
     
-    val typedRegs = tool.simpleQuery(arg1Type, relString, arg2Type)
+    val tregs1 = tool.simpleQuery(arg1Type, relString1, arg2Type)
+    val tregs2 = tool.simpleQuery(arg1Type, relString2, arg2Type)
     
-    typedRegs foreach { typedReg =>
-      println("%s\t%s\t%s".format(typedReg.arg1Type, typedReg.arg2Type, ReVerbExtractionGroup.serializeToString(typedReg.reg)))  
-    }
-    println("Total %d results.".format(typedRegs.size))
+    val freq1 = tregs1.size
+    val freq2 = tregs2.size
+    
+    val grouped = (tregs1 ++ tregs2).groupBy(treg => (treg.reg.arg1.norm, treg.reg.arg2.norm))
+    val intersection = grouped.filter { case ((arg1Norm, arg2Norm), regs) => regs.size >= 2 }
+    
+    val overlap = intersection.size;
+    
+    val pmi = overlap / (freq1 + freq2)
+    val condProb = overlap / freq2
+    val balanced = math.sqrt(pmi * condProb)
+    
+    printf("Freq t1: %d".format(freq1))
+    printf("Freq t2: %d".format(freq2))
+    printf("Freq overlap: %d".format(overlap))
+    printf("PMI: %.02f".format(pmi))
+    printf("P(t1|t2): %.02f".format(condProb))
+    printf("Balanced: %d".format(balanced))
   }
 }
 
