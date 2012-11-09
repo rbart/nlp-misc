@@ -126,19 +126,19 @@ object RelTupleProcessor {
   
   val topClasses = Set(
     "abstraction[n6]",
-    "action[n1]",
-    "animal[n1]",
-    "artifact[n1]",
-    "communication[n2]",
-    "event[n1]",
-    "group[n1]",
-    "knowledge[n1]",
-    "location[n1]",
-    "number[n1]",
-    "organization[n1]",
-    "person[n1]",
-    "physical_entity[n1]",
-    "quantity[n1]",
-    "time_period[n1]")
+"animal[n1]",
+"artifact[n1]",
+"communication[n2]",
+"group[n1]",
+"human_activity[n1]",
+"knowledge[n1]",
+"location[n1]",
+"number[n2]",
+"occurrence[n1]",
+"organization[n1]",
+"person[n1]",
+"physical_entity[n1]",
+"time_period[n1]",
+"unit[n1]")
 
 }
