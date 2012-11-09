@@ -3,13 +3,14 @@ package edu.washington.cs.knowitall.nlp.util
 import edu.washington.cs.knowitall.browser.lucene.ParallelExtractionGroupFetcher
 import edu.washington.cs.knowitall.browser.extraction._
 import edu.washington.cs.knowitall.nlp.ChunkedSentence
+import edu.washington.cs.knowitall.commonlib.Range
 import edu.washington.cs.knowitall.tool.chunk.ChunkedToken
 import scala.collection.JavaConversions._
 import scopt.OptionParser
 
 class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
 
-  val maxInstances = 5
+  val maxInstances = 10
   
   type REG = ExtractionGroup[ReVerbExtraction]
 
@@ -33,14 +34,16 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
       // Since NER might fire for some instances and not others, we 
       // try tagging several instances and looking for types.
       // try using both normalized and surface forms (e.g. hence arg1Types{1/2})
-      val arg1Types1 = instances.toIterable.map(i => StanfordNerHelper.getWnTag(i.extraction.arg1Text, chunkedSentence(i.extraction.sentenceTokens)))
-      val arg1Types2 = chunkedSentences(reg).map(s => StanfordNerHelper.getWnTag(reg.arg1.norm, s))
-      val arg1Types = arg1Types1 ++ arg1Types2;
+      //val arg1Types1 = instances.toIterable.map(i => StanfordNerHelper.getWnTag(i.extraction.arg1Text, chunkedSentence(i.extraction.sentenceTokens)))
+      //val arg1Types2 = chunkedSentences(reg).map(s => StanfordNerHelper.getWnTag(reg.arg1.norm, s))
+      //val arg1Types = arg1Types1 ++ arg1Types2;
+      val arg1Types = instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.arg1Tokens))
       val arg1Type = mostFrequent(arg1Types.filterNot(s => s equals "other_noun")).getOrElse("other_noun");
       
-      val arg2Types1 = instances.toIterable.map(i => StanfordNerHelper.getWnTag(i.extraction.arg2Text, chunkedSentence(i.extraction.sentenceTokens)))
-      val arg2Types2 = chunkedSentences(reg).map(s => StanfordNerHelper.getWnTag(reg.arg2.norm, s))
-      val arg2Types = arg2Types1 ++ arg2Types2;
+      //val arg2Types1 = instances.toIterable.map(i => StanfordNerHelper.getWnTag(i.extraction.arg2Text, chunkedSentence(i.extraction.sentenceTokens)))
+      //val arg2Types2 = chunkedSentences(reg).map(s => StanfordNerHelper.getWnTag(reg.arg2.norm, s))
+      //val arg2Types = arg2Types1 ++ arg2Types2;
+      val arg2Types = instances.toIterable.map(i => RelTupleProcessor.getType(i.extraction.arg2Tokens))
       val arg2Type = mostFrequent(arg2Types.filterNot(s => s equals "other_noun")).getOrElse("other_noun");
             
       new TypedReg(arg1Type, arg2Type, reg) // done
