@@ -119,7 +119,7 @@ object DataExplorerTool {
     val overlap = intersection.size;
     
     val pmi = overlap.toDouble / (freq1 + freq2)
-    val condProb = overlap / freq2
+    val condProb = overlap.toDouble / freq2
     val balanced = math.sqrt(pmi * condProb)
     
     printf("Freq t1: %d".format(freq1))
