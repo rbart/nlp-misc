@@ -52,13 +52,13 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
   
   def simpleQuery(arg1Type: String, relString: String, arg2Type: String): Iterable[TypedReg] = {
     val backendResults = relQueryBackend(relString) 
-    System.err.println("backend results size: %d".format(backendResults.size))
+    println("backend results size: %d".format(backendResults.size))
     val exactFilter = backendResults filter filterExactRel(relString) 
-    System.err.println("exactFilter results size: %d".format(exactFilter.size))
+    println("exactFilter results size: %d".format(exactFilter.size))
     val typedRegs = exactFilter map TypedReg.fromReg 
-    System.err.println("typedRegs results size: %d".format(typedRegs.size))
+    println("typedRegs results size: %d".format(typedRegs.size))
     val finalResults = typedRegs filter filterMatchingTypes(arg1Type, arg2Type)
-    System.err.println("finalResults results size: %d".format(finalResults.size))
+    println("finalResults results size: %d".format(finalResults.size))
     finalResults
   }
   
