@@ -118,7 +118,7 @@ object DataExplorerTool {
     
     val overlap = intersection.size;
     
-    val pmi = overlap / (freq1 + freq2)
+    val pmi = overlap.toDouble / (freq1 + freq2)
     val condProb = overlap / freq2
     val balanced = math.sqrt(pmi * condProb)
     
@@ -127,7 +127,7 @@ object DataExplorerTool {
     printf("Freq overlap: %d".format(overlap))
     printf("PMI: %.02f".format(pmi))
     printf("P(t1|t2): %.02f".format(condProb))
-    printf("Balanced: %d".format(balanced))
+    printf("Balanced: %.02f".format(balanced))
   }
 }
 
