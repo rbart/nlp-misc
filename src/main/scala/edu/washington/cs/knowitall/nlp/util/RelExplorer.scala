@@ -27,6 +27,9 @@ object RelExplorer {
     
     // retrieve REGs from the backend
     val regs = tool.relQueryBackend(relPhrase) filter tool.filterExactRel(relPhrase)
+    
+    
+    
     // convert these to ArgContext objects.
     val argContexts = regs.map { reg =>
         // get the chunkedsentence
@@ -43,9 +46,9 @@ object RelExplorer {
     val relTokens = extraction.normTokens(extraction.relInterval)
         
     // now convert to freqreltypecontexts
-    val freqRelContexts = typeContexts.map { tc =>
-      FreqRelTypeContext(-1, relTokens, tc)
-    } toSeq
+    val freqRelContexts = typeContexts.map({ tc =>
+      FreqRelTypeContext(tc.freq, relTokens, tc)
+    }).toSeq.sortBy(-_.freq)
     
     // now use existing code to produce output
     val wordNetHelper = WordNetHelper.getInstance

@@ -116,7 +116,7 @@ object TypeContextAggregator extends ScoobiApp {
     val freqTypeContextsRaw = groupSizes.flatMap {
       case (rel, (size, contexts)) =>
         val typeContexts = buildTypeContext(rel, contexts.iterator.take(250000).flatMap(ArgContext.fromString _)).toSeq.sortBy(-_.freq)
-        typeContexts.take(15).map { context => "%s\t%s".format(size, context.toString) }
+        typeContexts.take(15).map { context => "%s\t%s".format(context.freq, context.toString) }
     }
     
     val postagged = RelPostagFinder.go(freqTypeContextsRaw, rawEsrs)
