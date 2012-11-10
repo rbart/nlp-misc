@@ -26,8 +26,7 @@ object RelExplorer {
     val tool = DataExplorerTool.defaultTool
     
     // retrieve REGs from the backend
-    val regs = tool.relQueryBackend(relPhrase)
-    
+    val regs = tool.relQueryBackend(relPhrase) filter tool.filterExactRel(relPhrase)
     // convert these to ArgContext objects.
     val argContexts = regs.map { reg =>
         // get the chunkedsentence
