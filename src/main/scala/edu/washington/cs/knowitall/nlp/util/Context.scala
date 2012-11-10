@@ -4,6 +4,8 @@ import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 import scala.Array.canBuildFrom
 import scala.Array.fallbackCanBuildFrom
 
+import edu.washington.cs.knowitall.nlp.ChunkedSentence
+
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.ExtractionSentenceRecord
 
 case class FreqRelTypeContext(val freq: Int, val rel: Seq[PostaggedToken], val typeContext: TypeContext) {
@@ -23,14 +25,14 @@ object FreqRelTypeContext {
   }
 }
 
-case class ArgContext(val arg1: Seq[PostaggedToken], val arg2: Seq[PostaggedToken], val esr: ExtractionSentenceRecord) {
+case class ArgContext(val arg1: Seq[PostaggedToken], val arg2: Seq[PostaggedToken], val sent: ChunkedSentence) {
   
   override def toString = {
     val arg1Tokens = arg1.map(_.string).mkString(" ")
     val arg1Postags = arg1.map(_.postag).mkString(" ")
     val arg2Tokens = arg2.map(_.string).mkString(" ")
     val arg2Postags = arg2.map(_.postag).mkString(" ")
-    Seq(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags, esr.toString).mkString("\t")
+    Seq(arg1Tokens, arg1Postags, arg2Tokens, arg2Postags, sent.getTokensAsString(), sent.getPosTagsAsString(), sent.getChunkTagsAsString()).mkString("\t")
   }
 }
 
@@ -45,11 +47,13 @@ object ArgContext {
 
   def fromString(str: String): Option[ArgContext] = {
     val split = str.split("\t")
-    if (split.length > 4) {
+    if (split.length > 6) {
       val arg1 = joinTokensAndPostags(split(0), split(1))
       val arg2 = joinTokensAndPostags(split(2), split(3))
-      val esr = new ExtractionSentenceRecord(split.drop(4))
-      Some(ArgContext(arg1, arg2, esr))
+      val tokens = split(4).split(" ")
+      val postags = split(5).split(" ")
+      val chunktags= split(6).split(" ")
+      Some(ArgContext(arg1, arg2, new ChunkedSentence(tokens, postags, chunktags)))
     } else {
       System.err.println("Error parsing ArgContext: %s".format(str))
       None

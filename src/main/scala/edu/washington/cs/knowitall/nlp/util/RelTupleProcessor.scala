@@ -112,7 +112,7 @@ object RelTupleProcessor {
         val contextFreqs = contextGroups.map({ case (context, contexts) => (context, contexts.size) }).iterator.toSeq.sortBy(-_._2).take(20)
 
         contextFreqs.foreach {
-          case ((arg1Type, arg2Type), freq) =>
+          case ((arg1Type, arg2Type ), freq) =>
             val outString = Seq(rel, arg1Type, arg2Type, freq)
             println(outString)
         }

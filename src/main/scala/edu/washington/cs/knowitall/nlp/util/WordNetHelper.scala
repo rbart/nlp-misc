@@ -339,7 +339,7 @@ object WordNetHelper {
     
     val parser = new OptionParser("Relation Tabulator") {
       opt("inputFile", "TypeContexts, tab serialized (read from stdin by default", { str => input = Source.fromFile(str) })
-      opt("outputFile", "optional place to write output, defaulkt=stdout", { str => output = new PrintStream(new FileOutputStream(str)) })
+      opt("outputFile", "optional place to write output, default=stdout", { str => output = new PrintStream(new FileOutputStream(str)) })
       
     }
     

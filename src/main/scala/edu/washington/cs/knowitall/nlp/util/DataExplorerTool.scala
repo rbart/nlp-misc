@@ -83,6 +83,17 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
 
 object DataExplorerTool {
   
+  lazy val defaultTool = {
+    
+    val searchMaxGroups = 20000
+    val readMaxInstances = 200000
+    val timeoutMillis = 20000
+    
+    val pegf = new ParallelExtractionGroupFetcher(ParallelExtractionGroupFetcher.defaultIndexes.split(":"), searchMaxGroups, readMaxInstances, timeoutMillis)
+    
+    val tool = new DataExplorerTool(pegf)
+    tool
+  }
   
   def main(args: Array[String]): Unit = {
     
@@ -100,18 +111,9 @@ object DataExplorerTool {
     }
     
     if (!parser.parse(args)) return
-    
-    // open a pegf!!!
-    val searchMaxGroups = 20000
-    val readMaxInstances = 200000
-    val timeoutMillis = 20000
-    
-    val pegf = new ParallelExtractionGroupFetcher(ParallelExtractionGroupFetcher.defaultIndexes.split(":"), searchMaxGroups, readMaxInstances, timeoutMillis)
-    
-    val tool = new DataExplorerTool(pegf)
-    
-    val tregs1 = tool.simpleQuery(arg1Type, relString1, arg2Type)
-    val tregs2 = tool.simpleQuery(arg1Type, relString2, arg2Type)
+
+    val tregs1 = defaultTool.simpleQuery(arg1Type, relString1, arg2Type)
+    val tregs2 = defaultTool.simpleQuery(arg1Type, relString2, arg2Type)
     
     val freq1 = tregs1.size
     val freq2 = tregs2.size

@@ -21,7 +21,6 @@ import edu.washington.cs.knowitall.nlp.util.ArgContext
 import edu.washington.cs.knowitall.nlp.util.TypeContext
 
 
-
 object TypeContextAggregator extends ScoobiApp {
 
   def postagger = postaggerLocal.get
@@ -46,7 +45,7 @@ object TypeContextAggregator extends ScoobiApp {
     def toArgString(tokens: Seq[PostaggedToken]) = tokens.map(_.string).mkString(" ")
 
     relContexts.foreach { context =>
-      val typePair = toTypePair(context.arg1, context.arg2, StanfordNerHelper.getChunkedSentence(context.esr).get)
+      val typePair = toTypePair(context.arg1, context.arg2, context.sent)
       pairCounts.getOrElseUpdate(typePair, MutInt.zero).inc
       val argCount = argCounts.getOrElseUpdate(typePair, {
         (new mutable.HashMap[String, MutInt], new mutable.HashMap[String, MutInt])
@@ -152,7 +151,7 @@ object TypeContextAggregator extends ScoobiApp {
       val arg1Tokens = joinTokensAndPostags(esr.norm1Arg1, esr.norm1Arg1PosTags) filter filterTokens
       val arg2Tokens = joinTokensAndPostags(esr.norm1Arg2, esr.norm1Arg2PosTags) filter filterTokens
       val sent = StanfordNerHelper.getChunkedSentence(esr).getOrElse { return None }
-      Some(relString, ArgContext(arg1Tokens, arg2Tokens, esr).toString)
+      Some(relString, ArgContext(arg1Tokens, arg2Tokens, sent).toString)
     }
    
   }
