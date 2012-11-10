@@ -35,11 +35,13 @@ object TypeContextAggregator extends ScoobiApp {
 
     def toTypePair(arg1: Seq[PostaggedToken], arg2: Seq[PostaggedToken], sentence: ChunkedSentence): (String, String) = { 
       val typePair = (getType(arg1), getType(arg2))
-      // if wn returned "other_noun", try to do an NER lookup
-      // This is commented for testing purposes, remove it!
-      val left = if (typePair._1.equals("other_noun")) StanfordNerHelper.getWnTag(arg1, sentence) else typePair._1
-      val right = if (typePair._2.equals("other_noun")) StanfordNerHelper.getWnTag(arg2, sentence) else typePair._2
-      (left, right)
+
+      
+      // commented out due to problems with NER
+      //val left = if (typePair._1.equals("other_noun")) StanfordNerHelper.getWnTag(arg1, sentence) else typePair._1
+      //val right = if (typePair._2.equals("other_noun")) StanfordNerHelper.getWnTag(arg2, sentence) else typePair._2
+      //(left, right)
+      typePair
     }
     
     def toArgString(tokens: Seq[PostaggedToken]) = tokens.map(_.string).mkString(" ")

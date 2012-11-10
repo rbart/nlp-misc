@@ -11,8 +11,6 @@ import scala.collection.JavaConversions._
 // which is to take as input a relation phrase and return
 // wordnet info such as synonyms, entailments, 
 
-
-
 object RelExplorer {
 
   def main(args: Array[String]) {
