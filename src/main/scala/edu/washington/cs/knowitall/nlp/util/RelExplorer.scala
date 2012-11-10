@@ -39,8 +39,9 @@ object RelExplorer {
     val typeContexts = TypeContextAggregator.buildTypeContext(relPhrase, argContexts.iterator)
     
     // determine the actual relation tokens
-    val relTokens = regs.head.instances.head.extraction.relTokens
-    
+    val extraction = regs.head.instances.head.extraction
+    val relTokens = extraction.normTokens(extraction.relInterval)
+        
     // now convert to freqreltypecontexts
     val freqRelContexts = typeContexts.map { tc =>
       FreqRelTypeContext(-1, relTokens, tc)
