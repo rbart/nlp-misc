@@ -47,8 +47,10 @@ object RelExplorer {
         
     // now convert to freqreltypecontexts
     val freqRelContexts = typeContexts.map({ tc =>
-      FreqRelTypeContext(tc.freq, relTokens, tc)
-    }).toSeq.sortBy(-_.freq)
+      // put "other noun" at the bottom of the list.
+      val freq = if (tc.arg1Type.equals("other_noun") || tc.arg2Type.equals("other_noun")) -1 else tc.freq
+      FreqRelTypeContext(freq, relTokens, tc)
+    }).toSeq.sortBy(-_.freq).take(15)
     
     // now use existing code to produce output
     val wordNetHelper = WordNetHelper.getInstance
