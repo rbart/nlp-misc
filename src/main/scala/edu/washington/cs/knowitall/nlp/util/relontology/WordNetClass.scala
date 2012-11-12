@@ -1,5 +1,8 @@
 package edu.washington.cs.knowitall.nlp.util.relontology
 
+/**
+ * A wrapper for the top-level wordnet classes used for the relation ontology project.
+ */
 sealed abstract class WordNetClass(val string: String)
 
 object WordNetClass {
