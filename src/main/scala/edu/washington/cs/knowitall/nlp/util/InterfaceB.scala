@@ -41,9 +41,9 @@ object InterfaceB {
     println("WN Troponyms:")
     println(wnUtils.getWnTroponyms(relToken).mkString(", "))
     println("\nCLEAN HTL Entailments:")
-    cleanUtilsHtl.getCleanEntailments(relPhrase) foreach { ent => println("%s => %s".format(ent.left, ent.right)) };
+    cleanUtilsHtl.getCleanEntailments(relPhrase).map({ ent => println("%s => %s".format(ent.left, ent.right)) }).sorted.distinct;
     println("\nCLEAN TNCF Entailments:")
-    cleanUtilsTncf.getCleanEntailments(relPhrase) foreach { ent => println("%s => %s".format(ent.left, ent.right)) };
+    cleanUtilsTncf.getCleanEntailments(relPhrase).map({ ent => println("%s => %s".format(ent.left, ent.right)) }).sorted.distinct;
   }
 }
 
