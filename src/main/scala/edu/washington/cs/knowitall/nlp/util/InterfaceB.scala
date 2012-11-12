@@ -28,9 +28,9 @@ object InterfaceB {
     
     if (!parser.parse(args)) return
     
-    val wnUtils = WordNetUtils.defaultInstance
-    val cleanUtilsHtl = CleanUtils.defaultHtl
-    val cleanUtilsTncf = CleanUtils.defaultTncf
+    lazy val wnUtils = WordNetUtils.defaultInstance
+    lazy val cleanUtilsHtl = CleanUtils.defaultHtl
+    lazy val cleanUtilsTncf = CleanUtils.defaultTncf
     
     val relToken = new PostaggedToken("VB", relPhrase, 0)
     
@@ -41,9 +41,9 @@ object InterfaceB {
     println("WN Troponyms:")
     println(wnUtils.getWnTroponyms(relToken).mkString(", "))
     println("\nCLEAN HTL Entailments:")
-    cleanUtilsHtl.getCleanEntailments(relPhrase) foreach println;
+    cleanUtilsHtl.getCleanEntailments(relPhrase) foreach { ent => println("%s => %s".format(ent.left, ent.right)) };
     println("\nCLEAN TNCF Entailments:")
-    cleanUtilsTncf.getCleanEntailments(relPhrase) foreach println;
+    cleanUtilsTncf.getCleanEntailments(relPhrase) foreach { ent => println("%s => %s".format(ent.left, ent.right)) };
   }
 }
 
