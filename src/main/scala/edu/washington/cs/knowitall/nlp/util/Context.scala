@@ -67,14 +67,24 @@ case class TypeContext(
   val arg2Type: String,
   val freq: Int,
   val arg1s: Seq[(String, Int)],
-  val arg2s: Seq[(String, Int)]) {
+  val arg2s: Seq[(String, Int)],
+  val argPairs: Seq[((String, String), Int)] // Seq of ((arg1, arg2), freq) 
+  )  
+{
 
   import edu.washington.cs.knowitall.browser.hadoop.scoobi.TypeContextAggregator.postagger
   
   private def formatArgs(args: Seq[(String, Int)]): String = args.map({ case (arg, freq) => "%s(%d)".format(arg, freq) }).mkString(" | ")
   
+  private def formatPairs(pairs: Seq[((String, String), Int)]): String = {
+    pairs.map({ case ((arg1, arg2), freq) =>
+        "%s_%s_%d".format(arg1, arg2, freq)
+    }).mkString(" | ")
+  }
+  
   def arg1sFormatted = formatArgs(arg1s)
   def arg2sFormatted = formatArgs(arg2s)
+  def argPairsFormatted = formatPairs(argPairs)
   
   // need a toString
   override def toString = {
@@ -84,28 +94,38 @@ case class TypeContext(
       arg1Type,
       arg2Type,
       arg1sFormatted,
-      arg2sFormatted).mkString("\t")
+      arg2sFormatted,
+      argPairsFormatted).mkString("\t")
   }
 }
 
 object TypeContext {
 
-  private def parseArgFreq(string: String): Option[(String, Int)] = try {
+  private def parseArgFreq(string: String): Option[(String, Int)] = {
+    
     val trimmed = string.dropRight(1)
     val breakIndex = trimmed.lastIndexWhere(_ == '(')
     val arg = trimmed.take(breakIndex)
     val freq = trimmed.drop(breakIndex+1).toInt
     Some((arg, freq))
-  } catch {
-    case e => { e.printStackTrace(); System.err.println("ParseArgFreq error: %s".format(string)); None }
+  }
+  
+  private def parseArgPair(string: String): Option[((String, String), Int)] = {
+    string.split("_") match {
+      case Array(arg1, arg2, freqString, _*) => {
+        Some(((arg1, arg2), freqString.toInt))
+      }
+      case _ => { System.err.println("parseArgPair error: %s".format(string)); None }
+    }
   }
 
   def fromString(string: String): Option[TypeContext] = string.split("\t") match {
-    case Array(freq, rel, arg1Type, arg2Type, arg1Strings, arg2Strings, _*) => {
+    case Array(freq, rel, arg1Type, arg2Type, arg1Strings, arg2Strings, argPairStrings, _*) => {
       try {
         val arg1s = arg1Strings.split(" \\| ").flatMap(parseArgFreq _)
         val arg2s = arg2Strings.split(" \\| ").flatMap(parseArgFreq _)
-        Some(TypeContext(arg1Type, rel, arg2Type, freq.toInt, arg1s, arg2s))
+        val argPairs = argPairStrings.split(" \\| ").flatMap(parseArgPair _)
+        Some(TypeContext(arg1Type, rel, arg2Type, freq.toInt, arg1s, arg2s, argPairs))
       } catch {
         case e => { e.printStackTrace(); System.err.println("TypeContext couldn't parse: %s".format(string)); None }
       }

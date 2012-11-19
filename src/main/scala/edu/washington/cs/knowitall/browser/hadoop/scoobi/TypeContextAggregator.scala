@@ -20,9 +20,12 @@ import edu.washington.cs.knowitall.tool.postag.OpenNlpPostagger
 import edu.washington.cs.knowitall.nlp.util.ArgContext
 import edu.washington.cs.knowitall.nlp.util.TypeContext
 
+import edu.washington.cs.knowitall.nlp.util.DataExplorerTool.kMostFrequent
 
 object TypeContextAggregator extends ScoobiApp {
 
+  private val maxTcPerRel = 20;
+  
   def postagger = postaggerLocal.get
   private val postaggerLocal = new ThreadLocal[OpenNlpPostagger] { override def initialValue = new OpenNlpPostagger }
   
@@ -30,13 +33,17 @@ object TypeContextAggregator extends ScoobiApp {
 
     // we need to count the frequency of:
     // -- (arg1Type, arg2Type) pairs,
-    val pairCounts = new mutable.HashMap[(String, String), MutInt]
-    val argCounts = new mutable.HashMap[(String, String), (mutable.Map[String, MutInt], mutable.Map[String, MutInt])] 
+    // given a type pair, the frequency of arg1s, arg2s, and (arg1, arg2)'s 
+    // while only using the iterator once, in case this is being run in hadoop.
+    // hence all of the mutation.
+    val typePairCounts = new mutable.ArrayBuffer[(String, String)]
+    val arg1Counts = new mutable.HashMap[(String, String), mutable.ArrayBuffer[String]]
+    val arg2Counts = new mutable.HashMap[(String, String), mutable.ArrayBuffer[String]]
+    val argPairCounts = new mutable.HashMap[(String, String), mutable.ArrayBuffer[(String, String)]]
 
     def toTypePair(arg1: Seq[PostaggedToken], arg2: Seq[PostaggedToken], sentence: ChunkedSentence): (String, String) = { 
       val typePair = (getType(arg1), getType(arg2))
 
-      
       // commented out due to problems with NER
       //val left = if (typePair._1.equals("other_noun")) StanfordNerHelper.getWnTag(arg1, sentence) else typePair._1
       //val right = if (typePair._2.equals("other_noun")) StanfordNerHelper.getWnTag(arg2, sentence) else typePair._2
@@ -48,25 +55,21 @@ object TypeContextAggregator extends ScoobiApp {
 
     relContexts.foreach { context =>
       val typePair = toTypePair(context.arg1, context.arg2, context.sent)
-      pairCounts.getOrElseUpdate(typePair, MutInt.zero).inc
-      val argCount = argCounts.getOrElseUpdate(typePair, {
-        (new mutable.HashMap[String, MutInt], new mutable.HashMap[String, MutInt])
-      })
-      argCount._1.getOrElseUpdate(toArgString(context.arg1), MutInt.zero).inc
-      argCount._2.getOrElseUpdate(toArgString(context.arg2), MutInt.zero).inc
+      typePairCounts.append(typePair)
+      val arg1String = toArgString(context.arg1)
+      val arg2String = toArgString(context.arg2)
+      val argPair = (arg1String, arg2String)
+      arg1Counts.getOrElseUpdate(typePair, new mutable.ArrayBuffer[String]).append(arg1String)
+      arg2Counts.getOrElseUpdate(typePair, new mutable.ArrayBuffer[String]).append(arg2String)
+      argPairCounts.getOrElseUpdate(typePair, new mutable.ArrayBuffer[(String, String)]).append(argPair)
     }
 
-    // now, for each typed pair, we need to construct a TypeContext based on the data in the mutable maps.
-    // here is a helper method to extract the top args from an arg count map:
-    def topArgs(countMap: mutable.Map[String, MutInt]): Seq[(String, Int)] = {
-      countMap.iterator.map({ case (arg, count) => (arg, count.count.toInt) }).toSeq.sortBy(-_._2)
-    }
-
-    pairCounts.iterator.map({
+    kMostFrequent(typePairCounts, maxTcPerRel).map({
       case ((arg1Type, arg2Type), freq) =>
-        val (arg1Counts, arg2Counts) = argCounts(arg1Type, arg2Type)
-        val (topArg1s, topArg2s) = (topArgs(arg1Counts), topArgs(arg2Counts))
-        TypeContext(arg1Type, rel, arg2Type, freq.count.toInt, topArg1s.take(6), topArg2s.take(6))
+        val topArg1s = kMostFrequent(arg1Counts(arg1Type, arg2Type), 6)
+        val topArg2s = kMostFrequent(arg2Counts(arg1Type, arg2Type), 6)
+        val topArgPairs = kMostFrequent(argPairCounts(arg1Type, arg2Type), 10000)
+        TypeContext(arg1Type, rel, arg2Type, freq, topArg1s, topArg2s, topArgPairs)
     }).toIterable
   }
 
