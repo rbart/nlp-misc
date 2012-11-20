@@ -38,3 +38,23 @@ class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils
 	 scoredCandidates.toSeq.sortBy(-_.score)
    }
 }
+
+object RelOntology {
+  
+  import edu.washington.cs.knowitall.nlp.util.DataExplorerTool
+  import scopt.OptionParser
+  
+  lazy val relOntology = new RelOntology(DataExplorerTool.defaultTool, WordNetUtils.defaultInstance, CleanUtils.defaultBoth)
+  
+  def main(args: Array[String]): Unit = {
+    
+    var relPhrase = ""
+    val parser = new OptionParser("RelOntology") {
+      arg("relPhrase", "relPhrase", { str => relPhrase = str })
+    }
+    if (!parser.parse(args)) return;
+    
+    relOntology.findCandidates(relPhrase) foreach println;
+  }
+  
+}

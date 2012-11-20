@@ -59,6 +59,8 @@ object CleanUtils {
   lazy val defaultHtl = new CleanUtils(loadCleanFile(defaultHtlFile))
   lazy val defaultTncf = new CleanUtils(loadCleanFile(defaultTncfFile))
     
+  lazy val defaultBoth = new CleanUtils(loadCleanFile(defaultHtlFile) ++ loadCleanFile(defaultTncfFile))
+  
   def loadCleanFile(fileName: String): Iterable[CleanRecord] = {
     
     using(scala.io.Source.fromFile(fileName)) { source =>
