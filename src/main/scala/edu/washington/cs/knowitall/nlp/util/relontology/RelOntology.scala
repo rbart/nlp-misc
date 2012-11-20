@@ -27,9 +27,11 @@ class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils
 	 // that match each context, computes statistics."
 	 val allT2 = wnSynonyms ++ wnEntailments ++ cleanEntailments ++ wnTroponyms
 	
+	 val nymContexts = allT2.map(t2 => (t2, interfaceA.findTypeContexts(t2)))
+	 
 	 val candidates = typeContexts.flatMap({ relTc =>
-	   allT2.flatMap { nym =>
-	     interfaceA.findCandidates(relTc, nym)
+	   nymContexts.flatMap { case (nym, tcs) =>
+	     interfaceA.findCandidates(relTc, nym, tcs)
 	   }
 	 })
 	 

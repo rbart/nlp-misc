@@ -114,13 +114,10 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
     typeContexts.toIterable
   }
   
-  def findCandidates(parent: TypeContext, candidateNym: Nym): Iterable[Candidate] = {
-    
-	// do a query for the input candidate phrase
-    val typeContexts = findTypeContexts(candidateNym)
+  def findCandidates(parent: TypeContext, candidateNym: Nym, candidateTypeContexts: Iterable[TypeContext]): Iterable[Candidate] = {
     
     // compute a candidate for each of these typecontexts.
-    typeContexts.map { tc =>
+    candidateTypeContexts.map { tc =>
       
       val grouped = (parent.argPairs ++ tc.argPairs).groupBy(_._1).filter(_._2.size >= 2)
       val intersection = grouped.iterator.map { case ((arg1, arg2), counts) => ((arg1, arg2), counts.map(_._2).sum) }
@@ -152,11 +149,12 @@ object DataExplorerTool {
     tool
   }
   
+  // for debugging...
   lazy val fastTool = {
     
-    val searchMaxGroups = 2000
-    val readMaxInstances = 20000
-    val timeoutMillis = 2000
+    val searchMaxGroups = 1000
+    val readMaxInstances = 10000
+    val timeoutMillis = 500
     
     val pegf = new ParallelExtractionGroupFetcher(ParallelExtractionGroupFetcher.defaultIndexes.split(":"), searchMaxGroups, readMaxInstances, timeoutMillis)
     
