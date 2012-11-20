@@ -152,6 +152,18 @@ object DataExplorerTool {
     tool
   }
   
+  lazy val fastTool = {
+    
+    val searchMaxGroups = 2000
+    val readMaxInstances = 20000
+    val timeoutMillis = 2000
+    
+    val pegf = new ParallelExtractionGroupFetcher(ParallelExtractionGroupFetcher.defaultIndexes.split(":"), searchMaxGroups, readMaxInstances, timeoutMillis)
+    
+    val tool = new DataExplorerTool(pegf)
+    tool
+  }
+  
   def main(args: Array[String]): Unit = {
     
     var arg1Type = ""

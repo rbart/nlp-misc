@@ -5,6 +5,8 @@ import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
 class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils, val cleanUtils: CleanUtils) {
 
+   private val maxNyms = 2 // increase if not debug
+  
    // Implements the "Core" module described in Relation Ontology Spec
   // returns candidates in descending order of score
    def findCandidates(relPhrase: String): Seq[ScoredCandidate] = {
@@ -16,10 +18,10 @@ class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils
 	 
 	 // "Next sub-module finds all candidate relation phrases t2 that are either
 	 // synonyms, entailments, or troponyms of t1."
-	 val wnSynonyms = interfaceB.getWnSynonyms(relToken)
-	 val wnEntailments = interfaceB.getWnEntailments(relToken)
-	 val cleanEntailments = cleanUtils.getCleanEntailments(relPhrase)
-	 val wnTroponyms = interfaceB.getWnTroponyms(relToken)
+	 val wnSynonyms = interfaceB.getWnSynonyms(relToken).take(maxNyms)
+	 val wnEntailments = interfaceB.getWnEntailments(relToken).take(maxNyms)
+	 val cleanEntailments = cleanUtils.getCleanEntailments(relPhrase).take(maxNyms)
+	 val wnTroponyms = interfaceB.getWnTroponyms(relToken).take(maxNyms)
 	 
 	 // "Next sub-module looks up each t2 in the tuple base, finds arguments 
 	 // that match each context, computes statistics."
@@ -44,7 +46,7 @@ object RelOntology {
   import edu.washington.cs.knowitall.nlp.util.DataExplorerTool
   import scopt.OptionParser
   
-  lazy val relOntology = new RelOntology(DataExplorerTool.defaultTool, WordNetUtils.defaultInstance, CleanUtils.defaultBoth)
+  lazy val relOntology = new RelOntology(DataExplorerTool.fastTool, WordNetUtils.defaultInstance, CleanUtils.defaultBoth)
   
   def main(args: Array[String]): Unit = {
     

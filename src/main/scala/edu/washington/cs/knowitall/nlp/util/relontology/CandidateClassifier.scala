@@ -5,5 +5,6 @@ abstract class CandidateClassifier {
 }
 
 object StubClassifier extends CandidateClassifier {
-  def score(candidate: Candidate): ScoredCandidate = new ScoredCandidate(0.0, candidate)
+  // uses "candidate.balanced" directlty as the score.
+  def score(candidate: Candidate): ScoredCandidate = new ScoredCandidate(candidate.balanced, candidate)
 }
