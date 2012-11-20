@@ -15,35 +15,30 @@ class WordNetUtils(
   
   def getWnClass(tokens: Seq[PostaggedToken]): WordNetClass = {
     val rawClass = RelTupleProcessor.getType(tokens)
-    val classOption = WordNetClass.fromString(rawClass)
-    
-    return classOption.getOrElse {
-      System.err.println("Warning: RelTupleProcessor.getType returned an unrecognized class \"%s\", returning other_noun".format(rawClass))
-      OtherNoun
-    }
+    WordNetClass.fromString(rawClass)
   }
   
-  def getWnHypernyms(token: PostaggedToken): Seq[String] = {
+  def getWnEntailments(token: PostaggedToken): Seq[Entailment] = {
     val wnWords = wnHelper.wnWords(token).take(max_senses)
     val senses = wnWords.map(_.getSynset()).distinct
     val hypernymSenses = senses.flatMap(sense => wnHelper.entailments(sense)++wnHelper.hypernyms(sense)).map(_.synset)
     val hypernyms = hypernymSenses.flatMap(_.getWords().map(_.getLemma())).sorted.distinct
-    hypernyms
+    hypernyms map WnEntailment.apply
   }
   
-  def getWnTroponyms(token: PostaggedToken): Seq[String] = {
+  def getWnTroponyms(token: PostaggedToken): Seq[Troponym] = {
     val wnWords = wnHelper.wnWords(token).take(max_senses)
     val senses = wnWords.map(_.getSynset()).distinct
     val troponymSenses = senses.flatMap(sense => wnHelper.troponyms(sense))
     val troponyms = troponymSenses.flatMap(_.getWords().map(_.getLemma())).sorted.distinct
-    troponyms
+    troponyms map WnTroponym.apply
   }
   
-  def getWnSynonyms(token: PostaggedToken): Seq[String] = {
+  def getWnSynonyms(token: PostaggedToken): Seq[Synonym] = {
     val wnWords = wnHelper.wnWords(token).take(max_senses)
     val senses = wnWords.map(_.getSynset()).distinct
     val synonyms = senses.flatMap(sense => sense.getWords().map(_.getLemma())).sorted.distinct
-    synonyms.filter(!_.equals(token.string)) // don't include the original in the list of synonyms
+    synonyms.filter(!_.equals(token.string)) map WnSynonym.apply// don't include the original in the list of synonyms
   }
 }
 
@@ -77,7 +72,7 @@ object WordNetUtilsTest {
     
     if (!rel.isEmpty()) {
       val verbToken = new PostaggedToken("VB", rel, 0)
-      val hypernyms = wnUtils.getWnHypernyms(verbToken)
+      val hypernyms = wnUtils.getWnEntailments(verbToken)
       val troponyms = wnUtils.getWnTroponyms(verbToken)
       val synonyms = wnUtils.getWnSynonyms(verbToken)
       println("WN Hypernyms for %s are: %s".format(rel, hypernyms.mkString(", ")))

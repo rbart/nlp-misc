@@ -6,17 +6,18 @@ import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils, val cleanUtils: CleanUtils) {
 
    // Implements the "Core" module described in Relation Ontology Spec
-   def findCandidates(relPhrase: String): Iterable[Candidate] = {
+  // returns candidates in descending order of score
+   def findCandidates(relPhrase: String): Seq[ScoredCandidate] = {
      
      val relToken = new PostaggedToken("VB", relPhrase, 0)
      
      // "First sub-module looks up arguments and partitions them into arg-typed contexts"
-	 val typeContexts = interfaceA.findTypeContexts(relPhrase)
+	 val typeContexts = interfaceA.findTypeContexts(new Nym("parent") { def rel = relPhrase })
 	 
 	 // "Next sub-module finds all candidate relation phrases t2 that are either
 	 // synonyms, entailments, or troponyms of t1."
 	 val wnSynonyms = interfaceB.getWnSynonyms(relToken)
-	 val wnEntailments = interfaceB.getWnHypernyms(relToken)
+	 val wnEntailments = interfaceB.getWnEntailments(relToken)
 	 val cleanEntailments = cleanUtils.getCleanEntailments(relPhrase)
 	 val wnTroponyms = interfaceB.getWnTroponyms(relToken)
 	 
@@ -24,6 +25,16 @@ class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils
 	 // that match each context, computes statistics."
 	 val allT2 = wnSynonyms ++ wnEntailments ++ cleanEntailments ++ wnTroponyms
 	
-	 Iterable.empty
+	 val candidates = typeContexts.flatMap({ relTc =>
+	   allT2.flatMap { nym =>
+	     interfaceA.findCandidates(relTc, nym)
+	   }
+	 })
+	 
+	 // "Next sub-module applies a classifier (stub for now) to each arg-typed t2 entailing t1."
+	 val scoredCandidates = candidates map StubClassifier.score
+	 
+	 // 6.	Output is a list of arg-typed t2 ranked by probability.
+	 scoredCandidates.toSeq.sortBy(-_.score)
    }
 }

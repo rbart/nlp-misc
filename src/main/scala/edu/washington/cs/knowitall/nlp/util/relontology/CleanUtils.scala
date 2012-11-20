@@ -2,11 +2,11 @@ package edu.washington.cs.knowitall.nlp.util.relontology
 
 import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
-// represents a CLEAN entailment... 
-case class CleanEntailment(val left: String, val right: String, val leftRev: Boolean, val rightRev: Boolean)
+// represents a record from one of the CLEAN files 
+case class CleanRecord(val left: String, val right: String, val leftRev: Boolean, val rightRev: Boolean)
 
-object CleanEntailment {
-  def fromString(string: String): Option[CleanEntailment] = {
+object CleanRecord {
+  def fromString(string: String): Option[CleanRecord] = {
     string.split("\t") match {
       case Array(rawLeft, rawRight, _*) => {
     	
@@ -15,7 +15,7 @@ object CleanEntailment {
     	
     	val rightRev = rawRight.endsWith("@R@")
     	val right = if (rightRev) rawRight.dropRight(3) else rawRight
-    	Some(CleanEntailment(left, right, leftRev, rightRev))
+    	Some(CleanRecord(left, right, leftRev, rightRev))
       }
       case _ => { System.err.println("Couldn't parse:%s".format(string)); None }
     }
@@ -25,17 +25,27 @@ object CleanEntailment {
 /**
  * A helper class for performing lookups against Berant's CLEAN entailments.
  */
-class CleanUtils(val entailments: Iterable[CleanEntailment]) {
+class CleanUtils(val entailments: Iterable[CleanRecord]) {
 
-  def getCleanEntailments(matchString: String): Seq[CleanEntailment] = {
+  def getCleanEntailments(matchString: String): Seq[ClEntailment] = {
     
-    entailments.filter { ent =>
-      // want not reversed (or both reversed, equivalently)
+    entailments.filter({ ent => // want not reversed (or both reversed, equivalently)
       val revOk = (ent.leftRev == ent.rightRev) 
-      def matches = (ent.left.equalsIgnoreCase(matchString) || ent.right.equalsIgnoreCase(matchString))
-      revOk && matches
-    } toSeq
+      def matches = ent.left.equalsIgnoreCase(matchString)
+      revOk && matches;
+    }).toSeq.map(cr => ClEntailment((cr.right)))
   }
+  
+  def getCleanTroponyms(matchString: String): Seq[ClTroponym] = {
+    
+    entailments.filter({ ent => // want not reversed (or both reversed, equivalently)
+      val revOk = (ent.leftRev == ent.rightRev) 
+      def matches = ent.right.equalsIgnoreCase(matchString)
+      revOk && matches;
+    }).toSeq.map(cr => ClTroponym((cr.left)))
+  }
+  
+  def getCleanNyms(matchString: String): Seq[Nym] = getCleanEntailments(matchString) ++ getCleanTroponyms(matchString)
 }
 
 object CleanUtils {
@@ -49,10 +59,10 @@ object CleanUtils {
   lazy val defaultHtl = new CleanUtils(loadCleanFile(defaultHtlFile))
   lazy val defaultTncf = new CleanUtils(loadCleanFile(defaultTncfFile))
     
-  def loadCleanFile(fileName: String): Iterable[CleanEntailment] = {
+  def loadCleanFile(fileName: String): Iterable[CleanRecord] = {
     
     using(scala.io.Source.fromFile(fileName)) { source =>
-      source.getLines flatMap CleanEntailment.fromString toList // toList to guarantee full materialization... is there a better way?
+      source.getLines flatMap CleanRecord.fromString toList // toList to guarantee full materialization... is there a better way?
     }
   }
 }
@@ -73,12 +83,20 @@ object CleanUtilsTest {
     
     println("HTL Entailments:")
     CleanUtils.defaultHtl.getCleanEntailments(searchString) foreach { ent => 
-      println("%s\t%s".format(ent.left, ent.right))
+      println(ent)
+    }
+    println("HTL Troponyms:")
+    CleanUtils.defaultHtl.getCleanTroponyms(searchString) foreach { ent => 
+      println(ent)
     }
     
     println("\nTNCF Entailments:")
     CleanUtils.defaultTncf.getCleanEntailments(searchString) foreach { ent => 
-      println("%s\t%s".format(ent.left, ent.right))
+      println(ent)
+    }
+    println("\nTNCF Troponyms:")
+    CleanUtils.defaultTncf.getCleanTroponyms(searchString) foreach { ent => 
+      println(ent)
     }
   }
 }

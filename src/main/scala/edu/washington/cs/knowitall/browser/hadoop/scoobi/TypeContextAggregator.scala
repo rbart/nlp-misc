@@ -21,6 +21,7 @@ import edu.washington.cs.knowitall.nlp.util.ArgContext
 import edu.washington.cs.knowitall.nlp.util.TypeContext
 
 import edu.washington.cs.knowitall.nlp.util.DataExplorerTool.kMostFrequent
+import edu.washington.cs.knowitall.nlp.util.relontology.Nym
 
 object TypeContextAggregator extends ScoobiApp {
 
@@ -69,7 +70,7 @@ object TypeContextAggregator extends ScoobiApp {
         val topArg1s = kMostFrequent(arg1Counts(arg1Type, arg2Type), 6)
         val topArg2s = kMostFrequent(arg2Counts(arg1Type, arg2Type), 6)
         val topArgPairs = kMostFrequent(argPairCounts(arg1Type, arg2Type), 10000)
-        TypeContext(arg1Type, rel, arg2Type, freq, topArg1s, topArg2s, topArgPairs)
+        TypeContext(arg1Type, new Nym("tca:") { def rel = rel }, arg2Type, freq, topArg1s, topArg2s, topArgPairs)
     }).toIterable
   }
 

@@ -19,5 +19,5 @@ class Candidate(
     val balanced: Double 
     ) 
 
-
+class ScoredCandidate(val score: Double, val candidate: Candidate)
 

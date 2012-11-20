@@ -9,6 +9,8 @@ import scala.collection.JavaConversions._
 import scopt.OptionParser
 
 import edu.washington.cs.knowitall.nlp.util.relontology.Candidate
+import edu.washington.cs.knowitall.nlp.util.relontology.Nym
+import edu.washington.cs.knowitall.nlp.util.relontology.WordNetClass
 
 // Implements Stephen's "Interface A"
 class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
@@ -94,9 +96,9 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
     kMostFrequent(items, 1).headOption
   }
   
-  def findTypeContexts(relPhrase: String): Iterable[TypeContext] = {
+  def findTypeContexts(relNym: Nym): Iterable[TypeContext] = {
     
-    val typedRegs = findTypedRegs(relPhrase)
+    val typedRegs = findTypedRegs(relNym.rel)
     // group by (arg1Type, arg2Type)
     val groups = typedRegs.groupBy { typedReg => (typedReg.arg1Type, typedReg.arg2Type) }
     
@@ -106,19 +108,33 @@ class DataExplorerTool(val pegf: ParallelExtractionGroupFetcher) {
       val arg2Samples = kMostFrequent(typedRegs.map(_.reg.arg2.norm), argSampleSize)
       val argPairSamples = kMostFrequent(typedRegs.map(treg => (treg.reg.arg1.norm, treg.reg.arg2.norm)), pairSampleSize)
       
-      TypeContext(arg1Type, relPhrase, arg2Type, typedRegs.size, arg1Samples, arg2Samples, argPairSamples)
+      TypeContext(arg1Type, relNym, arg2Type, typedRegs.size, arg1Samples, arg2Samples, argPairSamples)
     }
     
     typeContexts.toIterable
   }
   
-  def findCandidates(parent: TypeContext, candidatePhrase: String): Iterable[Candidate] = {
+  def findCandidates(parent: TypeContext, candidateNym: Nym): Iterable[Candidate] = {
     
-    // TypeContexts will not work for computing distributional similarity. 
-    // They don't contain the right information.
-    // We need info about 
+	// do a query for the input candidate phrase
+    val typeContexts = findTypeContexts(candidateNym)
     
-    Iterable.empty
+    // compute a candidate for each of these typecontexts.
+    typeContexts.map { tc =>
+      
+      val grouped = (parent.argPairs ++ tc.argPairs).groupBy(_._1).filter(_._2.size >= 2)
+      val intersection = grouped.iterator.map { case ((arg1, arg2), counts) => ((arg1, arg2), counts.map(_._2).sum) }
+      val overlap = intersection.map(_._2).sum
+      
+      val pmi = overlap.toDouble / (parent.freq + tc.freq)
+      val condProb = overlap.toDouble / tc.freq
+      val balanced = math.sqrt(pmi * condProb)
+      
+      val arg1Class = WordNetClass.fromString(tc.arg1Type)
+      val arg2Class = WordNetClass.fromString(tc.arg2Type)
+      
+      new Candidate(arg1Class, candidateNym , arg2Class, parent, tc.freq, overlap, pmi, condProb, balanced)
+    }
   }
 }
 

@@ -39,7 +39,7 @@ object RelPostagFinder extends ScoobiApp {
   def freqTypeToRelFreqType(pair: (Int, TypeContext)): (String, String) = {
     val freq = pair._1
     val typeContext = pair._2
-    (typeContext.rel, Seq(freq, typeContext.toString).mkString("\t"))
+    (typeContext.relNym.rel, Seq(freq, typeContext.toString).mkString("\t"))
   }
   
   def run(): Unit = {

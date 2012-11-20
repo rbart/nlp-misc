@@ -37,13 +37,13 @@ object InterfaceB {
     println("WN Synonyms:")
     println(wnUtils.getWnSynonyms(relToken).mkString(", "))
     println("WN Hypernyms:")
-    println(wnUtils.getWnHypernyms(relToken).mkString(", "))
+    println(wnUtils.getWnEntailments(relToken).mkString(", "))
     println("WN Troponyms:")
     println(wnUtils.getWnTroponyms(relToken).mkString(", "))
     println("\nCLEAN HTL Entailments:")
-    cleanUtilsHtl.getCleanEntailments(relPhrase).map({ ent => "%s => %s".format(ent.left, ent.right) }).sorted.distinct foreach println;
+    cleanUtilsHtl.getCleanEntailments(relPhrase).map({ ent => ent.toString }).sorted.distinct foreach println;
     println("\nCLEAN TNCF Entailments:")
-    cleanUtilsTncf.getCleanEntailments(relPhrase).map({ ent => "%s => %s".format(ent.left, ent.right) }).sorted.distinct foreach println;
+    cleanUtilsTncf.getCleanEntailments(relPhrase).map({ ent => ent.toString }).sorted.distinct foreach println;
   }
 }
 

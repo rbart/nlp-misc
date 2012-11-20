@@ -28,7 +28,7 @@ object WordNetClass {
   
   // Returns None if input doesn't match any class.
   // Returns OtherNoun only if input equals "other_noun"
-  def fromString(string: String): Option[WordNetClass] = classNameMap.get(string)
+  def fromString(string: String): WordNetClass = classNameMap.get(string).getOrElse(OtherNoun)
 }
 
 case object Abstraction extends WordNetClass("abstraction[n6]")

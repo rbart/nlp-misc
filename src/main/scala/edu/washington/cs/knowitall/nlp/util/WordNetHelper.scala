@@ -61,7 +61,7 @@ class WordNetHelper(
   def outputContextRows(relContentWords: Seq[String], contexts: Seq[FreqRelTypeContext]): Seq[String] = {
     
     val spacers = relContentWords.map(_ => " ")
-    val rel = contexts.head.typeContext.rel
+    val rel = contexts.head.typeContext.relNym
     
     Seq("Contexts",
       (Seq("C", "relation") ++ relContentWords ++ Seq("arg1_type", "arg1_terms", "arg2_type", "arg2_terms")).mkString("\t")
@@ -310,7 +310,9 @@ class WordNetHelper(
 object WordNetHelper {
 
   import java.io.PrintStream
+
   import java.io.FileOutputStream
+  import edu.washington.cs.knowitall.nlp.util.relontology.Nym
   
   val wnHome = "/scratch/WordNet-3.0/file_properties.xml"
   
@@ -360,7 +362,7 @@ object WordNetHelper {
     
     // this is horrible, ugly code, written while desperately behind and trying to just get something that works.
     
-    var lastRel: String = ""
+    var lastRel = new Nym("null") { def rel = "null" }
     var numRels = 0
     val accumulator = new mutable.MutableList[FreqRelTypeContext]()
     
@@ -368,7 +370,7 @@ object WordNetHelper {
     
     for (context <- filtered) {
       if (numRels > 5000) scala.util.control.Breaks.break()
-      val currentRel = context.typeContext.rel
+      val currentRel = context.typeContext.relNym
       if (currentRel.equals(lastRel)) {
         accumulator += context
       } else {

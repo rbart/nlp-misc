@@ -8,6 +8,8 @@ import edu.washington.cs.knowitall.nlp.ChunkedSentence
 
 import edu.washington.cs.knowitall.browser.hadoop.scoobi.util.ExtractionSentenceRecord
 
+import edu.washington.cs.knowitall.nlp.util.relontology.Nym
+
 case class FreqRelTypeContext(val freq: Int, val rel: Seq[PostaggedToken], val typeContext: TypeContext) {
   override def toString = {
     val relPostags = rel.map(_.postag).mkString(" ")
@@ -20,7 +22,7 @@ object FreqRelTypeContext {
     val split = string.split("\t")
     if (split.length <= 4) return fail
     val typeContext = TypeContext.fromString(split.drop(2).mkString("\t")).getOrElse(return fail)
-    val relTokens = ArgContext.joinTokensAndPostags(typeContext.rel, split(1))
+    val relTokens = ArgContext.joinTokensAndPostags(typeContext.relNym.rel, split(1))
     Some(FreqRelTypeContext(split(0).toInt, relTokens, typeContext))
   }
 }
@@ -61,9 +63,11 @@ object ArgContext {
   }
 }
 
+
+
 case class TypeContext(
   val arg1Type: String,
-  val rel: String,
+  val relNym: Nym,
   val arg2Type: String,
   val freq: Int,
   val arg1s: Seq[(String, Int)],
@@ -90,7 +94,7 @@ case class TypeContext(
   override def toString = {
     Seq(
       freq.toString,
-      rel,
+      relNym,
       arg1Type,
       arg2Type,
       arg1sFormatted,
@@ -120,12 +124,14 @@ object TypeContext {
   }
 
   def fromString(string: String): Option[TypeContext] = string.split("\t") match {
-    case Array(freq, rel, arg1Type, arg2Type, arg1Strings, arg2Strings, argPairStrings, _*) => {
+    case Array(freq, relNymString, arg1Type, arg2Type, arg1Strings, arg2Strings, argPairStrings, _*) => {
       try {
         val arg1s = arg1Strings.split(" \\| ").flatMap(parseArgFreq _)
         val arg2s = arg2Strings.split(" \\| ").flatMap(parseArgFreq _)
         val argPairs = argPairStrings.split(" \\| ").flatMap(parseArgPair _)
-        Some(TypeContext(arg1Type, rel, arg2Type, freq.toInt, arg1s, arg2s, argPairs))
+        throw new RuntimeException("not implemented") // need to implement fromString for Nyms...
+        
+        None; //Some(TypeContext(arg1Type, relNym, arg2Type, freq.toInt, arg1s, arg2s, argPairs))
       } catch {
         case e => { e.printStackTrace(); System.err.println("TypeContext couldn't parse: %s".format(string)); None }
       }
