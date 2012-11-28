@@ -1,9 +1,9 @@
 package edu.washington.cs.knowitall.nlp.util.relontology
 
-import edu.washington.cs.knowitall.nlp.util.DataExplorerTool
+import edu.washington.cs.knowitall.nlp.util.DataExplorerTool2
 import edu.washington.cs.knowitall.tool.postag.PostaggedToken
 
-class RelOntology(val interfaceA: DataExplorerTool, val interfaceB: WordNetUtils, val cleanUtils: CleanUtils, val verbose: Boolean = false) {
+class RelOntology(val interfaceA: DataExplorerTool2, val interfaceB: WordNetUtils, val cleanUtils: CleanUtils, val verbose: Boolean = false) {
 
   import RelOntology._
 
@@ -63,7 +63,10 @@ object RelOntology {
     }
     if (!parser.parse(args)) return ;
 
-    val relOntology = new RelOntology(DataExplorerTool.fastTool, WordNetUtils.defaultInstance, CleanUtils.defaultBoth, verbose)
+    val sortedMap = new edu.washington.cs.knowitall.browser.util.SortedFileMap("/scratch/usr/rbart/argpairs.sorted", 10000)
+    val det = new DataExplorerTool2(sortedMap)
+    
+    val relOntology = new RelOntology(det, WordNetUtils.defaultInstance, CleanUtils.defaultBoth, verbose)
 
     relOntology.findCandidates(relPhrase) foreach println;
   }
