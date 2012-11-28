@@ -37,7 +37,7 @@ object ArgPairFilter {
       if (indexToSplit == -1) return None
       else {
         try {
-          return Some(line.substring(0, indexToSplit - 1), line.substring(indexToSplit + 1))
+          return Some(line.substring(0, indexToSplit), line.substring(indexToSplit + 1))
         } catch { 
           case e => {
             System.err.println("Screwed up line.substring...\nline=%s\nindexToSplit=%s\nLength=%d".format(line, indexToSplit, line.length))
