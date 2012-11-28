@@ -12,6 +12,8 @@ import edu.washington.cs.knowitall.common.Resource.using
 // 
 object ArgPairFilter {
 
+  private val packetSize = 1000
+  
   def main(args: Array[String]): Unit = {
 
     var input = ""
@@ -37,8 +39,8 @@ object ArgPairFilter {
       if (indexToSplit == -1) return None
       else {
         try {
-          return Some(line.substring(0, indexToSplit - 1), line.substring(indexToSplit + 1))
-        } catch { 
+          return Some(line.substring(0, indexToSplit), line.substring(indexToSplit + 1))
+        } catch {
           case e => {
             System.err.println("Screwed up line.substring...\nline=%s\nindexToSplit=%s\nLength=%d".format(line, indexToSplit, line.length))
             None
@@ -46,15 +48,26 @@ object ArgPairFilter {
         }
       }
     }
-    
+
     def backToString(pair: (String, String)): String = "%s\t%s".format(pair._1, pair._2)
 
     using(inSrc) { in =>
       using(outSrc) { out =>
-        in.getLines flatMap parseLine filter { case (rel, argPairs) =>
-          argPairs.count(_ == '\t') >= minPairs - 1
-        } map backToString foreach out.println
-      } 
+        // get work packets of about 1000 lines
+        val workPackets = in.getLines.grouped(packetSize)
+        // parse and filter
+        val processedPackets = workPackets.map { packet =>
+          packet.par.flatMap(line => parseLine(line)).filter {
+            case (rel, argPairs) =>
+              argPairs.count(_ == '\t') >= minPairs - 1
+          } map backToString
+        }
+
+        processedPackets foreach { packet =>
+          packet.foreach { line => out.println(line) }
+          out.flush
+        }
+      }
     }
 
   }
