@@ -60,6 +60,7 @@ class DataExplorerTool2(val relArgPairMap: SortedFileMap) {
     
     // convert these groups into type contexts...
     val typeContexts = groups.iterator.map { case ((arg1Type, arg2Type), typedArgPairs) =>
+      System.err.println("Processing args for type pair (%s;%s)".format(arg1Type, arg2Type))
       val arg1Samples = kMostFrequent(typedArgPairs.map(_.argPair.arg1), argSampleSize)
       val arg2Samples = kMostFrequent(typedArgPairs.map(_.argPair.arg2), argSampleSize)
       val argPairSamples = kMostFrequent(typedArgPairs.map(tap => (tap.argPair.arg1, tap.argPair.arg1)), pairSampleSize)
