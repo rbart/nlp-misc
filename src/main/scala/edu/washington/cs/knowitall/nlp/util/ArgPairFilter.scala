@@ -40,7 +40,7 @@ object ArgPairFilter {
       else {
         try {
           return Some(line.substring(0, indexToSplit), line.substring(indexToSplit + 1))
-        } catch {
+        } catch { 
           case e => {
             System.err.println("Screwed up line.substring...\nline=%s\nindexToSplit=%s\nLength=%d".format(line, indexToSplit, line.length))
             None
